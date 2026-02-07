@@ -33,11 +33,11 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    exclude: ['node_modules', 'dist'],
+    exclude: ['**/node_modules/**', 'dist', 'examples/**'],
     coverage: {
       reporter: ['text', 'json', 'html', 'lcov'],
       include: ['src/**/*.ts', '!src/tests/**'],
-      exclude: ['src/tests/**', '**/*.spec.ts'],
+      exclude: ['src/tests/**', '**/*.spec.ts', 'examples/**', 'node_modules/**'],
     },
   },
 });
