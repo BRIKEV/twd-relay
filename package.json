@@ -1,0 +1,69 @@
+{
+  "name": "twd-relay",
+  "version": "0.1.0",
+  "description": "WebSocket relay for TWD — enables AI agents and external tools to run and observe in-browser tests",
+  "license": "MIT",
+  "author": "BRIKEV",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BRIKEV/twd-relay.git"
+  },
+  "type": "module",
+  "main": "./dist/index.cjs.js",
+  "module": "./dist/index.es.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "twd-relay": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.cjs.js"
+    },
+    "./browser": {
+      "types": "./dist/browser.d.ts",
+      "import": "./dist/browser.es.js",
+      "default": "./dist/browser.es.js"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.ts",
+      "import": "./dist/vite.es.js",
+      "require": "./dist/vite.cjs.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "vite build && vite build -c vite.cli.config.ts && node -e \"const fs=require('fs');const f='dist/cli.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f,'utf8'))\" && chmod +x dist/cli.js",
+    "test": "vitest",
+    "test:ci": "vitest --run --coverage"
+  },
+  "peerDependencies": {
+    "twd-js": ">=1.4.0"
+  },
+  "peerDependenciesMeta": {
+    "twd-js": {
+      "optional": false
+    },
+    "vite": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "ws": "^8.18.2"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.18.1",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-dts": "^4.5.4",
+    "vitest": "^4.0.18"
+  }
+}
