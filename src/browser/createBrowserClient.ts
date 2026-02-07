@@ -58,6 +58,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   const url = options?.url ?? getDefaultUrl();
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
+  const logPrefix = '[twd-relay]';
 
   let ws: WebSocket | null = null;
   let intentionalClose = false;
@@ -195,6 +196,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     }
 
     if (parsed.type === 'run') {
+      console.info(logPrefix, 'Received run command — running tests...');
       handleRunCommand();
     } else if (parsed.type === 'status') {
       handleStatusCommand();
@@ -203,6 +205,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
   function scheduleReconnect(): void {
     if (reconnect && !intentionalClose) {
+      console.info(logPrefix, `Reconnecting in ${reconnectInterval}ms...`);
       reconnectTimer = setTimeout(() => {
         connect();
       }, reconnectInterval);
@@ -215,16 +218,21 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     }
 
     intentionalClose = false;
+    console.info(logPrefix, 'Connecting to', url);
     ws = new WebSocket(url);
 
     ws.addEventListener('open', () => {
       send({ type: 'hello', role: 'browser' });
+      console.info(logPrefix, 'Connected to relay — ready to receive run/status commands');
     });
 
     ws.addEventListener('message', handleMessage);
 
-    ws.addEventListener('close', () => {
+    ws.addEventListener('close', (event) => {
       ws = null;
+      if (!intentionalClose) {
+        console.info(logPrefix, 'Disconnected', event.code ? `(code ${event.code})` : '', event.reason || '');
+      }
       scheduleReconnect();
     });
 

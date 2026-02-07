@@ -35,6 +35,21 @@ twd-relay is a WebSocket relay that lets AI agents and external tools trigger an
 4. Browser streams test events → relay broadcasts to all clients
 5. `run:complete` clears the run lock
 
+### Manual testing (standalone relay)
+
+Three pieces work together: (1) **relay server** — one WebSocket server; (2) **browser** — your app loads the browser client and connects to the relay, then waits for commands; (3) **client** — something that connects to the relay and sends `run` (e.g. an AI agent or the `send-run` script). Your app’s `main.tsx` only enables the browser side; to trigger a run you need a client that sends the command.
+
+From repo root:
+
+1. **Start the relay** (builds and runs on port 9876):  
+   `npm run relay`
+2. **Start the example app** (any port):  
+   `cd examples/twd-test-app && npm run dev`
+3. **Open the app in a browser** — the page connects to the relay as “browser”.
+4. **Trigger a run** from another terminal:  
+   `npm run send-run`  
+   (or `node scripts/send-run.js --port 9876`). The script connects as a client and sends `run`; you’ll see test events in the terminal.
+
 ## Key Design Decisions
 
 - `twd-js` is a **peer dependency**; the browser client uses `await import('twd-js/runner')` to avoid bundling it

@@ -25,6 +25,13 @@ if (import.meta.env.DEV) {
     .catch((err) => {
       console.error("Error initializing request mocking:", err);
     });
+  // Browser client: connects to the relay and runs tests when it receives a "run" command.
+  // To trigger a run, use a client (e.g. from repo root: npm run send-run).
+  const { createBrowserClient } = await import('../../../dist/browser.es.js');
+  const client = createBrowserClient({
+    url: 'ws://localhost:9876/__twd/ws',
+  });
+  client.connect();
 }
 
 createRoot(document.getElementById('root')!).render(
