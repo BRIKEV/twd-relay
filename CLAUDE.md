@@ -25,7 +25,9 @@ twd-relay is a WebSocket relay that lets AI agents and external tools trigger an
 
 **Browser Client** (`src/browser/`, exported as `twd-relay/browser`) — Runs in the browser. Connects to the relay, listens for commands, dynamically imports `twd-js/runner` to execute tests, and streams results back. Uses native browser `WebSocket` with auto-reconnect. Reads test state from `window.__TWD_STATE__` (set by twd-js).
 
-**Vite Plugin** (`src/vite/`, exported as `twd-relay/vite`) — A Vite plugin that hooks into `configureServer` to attach the relay to the dev server's HTTP instance. Also a standalone CLI (`src/cli/standalone.ts`, bin: `twd-relay`) that spins up its own HTTP server with the relay.
+**Vite Plugin** (`src/vite/`, exported as `twd-relay/vite`) — A Vite plugin that hooks into `configureServer` to attach the relay to the dev server's HTTP instance.
+
+**CLI** (`src/cli/`, bin: `twd-relay`) — Two subcommands: `serve` (default) starts a standalone HTTP server with the relay on port 9876; `run` connects to an existing relay as a client, sends a `run` command, streams test output, and exits with code 0/1 based on results. The `run` subcommand defaults to port 5173 (Vite dev server) and has a 180s timeout.
 
 ### Message protocol flow
 
