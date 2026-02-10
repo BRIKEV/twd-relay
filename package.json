@@ -44,7 +44,7 @@
     "build": "vite build && vite build -c vite.cli.config.ts && node -e \"const fs=require('fs');const f='dist/cli.js';fs.writeFileSync(f,'#!/usr/bin/env node\\n'+fs.readFileSync(f,'utf8'))\" && chmod +x dist/cli.js",
     "dev": "node dist/cli.js",
     "relay": "npm run build && node dist/cli.js",
-    "send-run": "node scripts/send-run.js",
+    "send-run": "node dist/cli.js run",
     "test": "vitest",
     "test:ci": "vitest --run --coverage"
   },
