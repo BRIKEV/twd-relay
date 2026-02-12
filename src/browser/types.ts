@@ -5,6 +5,8 @@ export interface BrowserClientOptions {
   reconnect?: boolean;
   /** Milliseconds between reconnect attempts. Default: 2000 */
   reconnectInterval?: number;
+  /** Enable console logging. Default: false */
+  log?: boolean;
 }
 
 export interface BrowserClient {

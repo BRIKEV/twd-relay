@@ -58,7 +58,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   const url = options?.url ?? getDefaultUrl();
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
+  const enableLog = options?.log ?? false;
   const logPrefix = '[twd-relay]';
+
+  function log(...args: unknown[]): void {
+    if (enableLog) console.info(logPrefix, ...args);
+  }
 
   let ws: WebSocket | null = null;
   let intentionalClose = false;
@@ -196,7 +201,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     }
 
     if (parsed.type === 'run') {
-      console.info(logPrefix, 'Received run command — running tests...');
+      log('Received run command — running tests...');
       handleRunCommand();
     } else if (parsed.type === 'status') {
       handleStatusCommand();
@@ -205,7 +210,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
   function scheduleReconnect(): void {
     if (reconnect && !intentionalClose) {
-      console.info(logPrefix, `Reconnecting in ${reconnectInterval}ms...`);
+      log(`Reconnecting in ${reconnectInterval}ms...`);
       reconnectTimer = setTimeout(() => {
         connect();
       }, reconnectInterval);
@@ -218,20 +223,28 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     }
 
     intentionalClose = false;
-    console.info(logPrefix, 'Connecting to', url);
+    log('Connecting to', url);
     ws = new WebSocket(url);
 
     ws.addEventListener('open', () => {
       send({ type: 'hello', role: 'browser' });
-      console.info(logPrefix, 'Connected to relay — ready to receive run/status commands');
+      log('Connected to relay — ready to receive run/status commands');
     });
 
     ws.addEventListener('message', handleMessage);
 
     ws.addEventListener('close', (event) => {
       ws = null;
+
+      // If replaced by another browser instance, don't reconnect — the relay
+      // only supports one browser and this instance has been evicted.
+      if (event.reason === 'Replaced by new browser') {
+        log('Another browser instance connected — this instance will not reconnect');
+        return;
+      }
+
       if (!intentionalClose) {
-        console.info(logPrefix, 'Disconnected', event.code ? `(code ${event.code})` : '', event.reason || '');
+        log('Disconnected', event.code ? `(code ${event.code})` : '', event.reason || '');
       }
       scheduleReconnect();
     });
