@@ -65,6 +65,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     if (enableLog) console.info(logPrefix, ...args);
   }
 
+  function warn(...args: unknown[]): void {
+    console.warn(logPrefix, ...args);
+  }
+
   let ws: WebSocket | null = null;
   let intentionalClose = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -82,6 +86,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   async function handleRunCommand(): Promise<void> {
     const twdState = window.__TWD_STATE__;
     if (!twdState) {
+      warn('TWD not initialized — make sure twd-js is loaded before running tests');
       send({ type: 'error', code: 'NO_TWD', message: 'TWD not initialized' });
       return;
     }
@@ -160,6 +165,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
       await runner.runAll();
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
+      warn('Runner error:', errorMsg);
       send({ type: 'error', code: 'RUNNER_ERROR', message: errorMsg });
     }
 
@@ -239,7 +245,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
       // If replaced by another browser instance, don't reconnect — the relay
       // only supports one browser and this instance has been evicted.
       if (event.reason === 'Replaced by new browser') {
-        log('Another browser instance connected — this instance will not reconnect');
+        warn('Another browser instance connected — this instance will not reconnect');
         return;
       }
 
