@@ -22,15 +22,20 @@ Commands:
 
 Options for serve:
   --port <port>   Port to listen on (default: 9876)
+  --path <path>   WebSocket path (default: /__twd/ws)
 
 Options for run:
   --port <port>      Relay port to connect to (default: 5173)
+  --host <host>      Relay host to connect to (default: localhost)
+  --path <path>      WebSocket path (default: /__twd/ws)
   --timeout <ms>     Timeout in ms (default: 180000)
 
 Examples:
   twd-relay                     # start relay on port 9876
+  twd-relay serve --path /app/__twd/ws
   twd-relay run                 # trigger run via Vite dev server on 5173
   twd-relay run --port 9876     # trigger run on custom port
+  twd-relay run --host 192.168.1.10 --path /app/__twd/ws
   twd-relay run --timeout 30000 # custom timeout`);
 }
 
@@ -42,6 +47,8 @@ if (args.includes('--help') || args.includes('-h')) {
 if (subcommand === 'run') {
   const portStr = parseFlag('--port');
   const timeoutStr = parseFlag('--timeout');
+  const pathFlag = parseFlag('--path') ?? '/__twd/ws';
+  const hostFlag = parseFlag('--host') ?? 'localhost';
 
   const port = portStr ? parseInt(portStr, 10) : 5173;
   if (isNaN(port)) {
@@ -55,10 +62,11 @@ if (subcommand === 'run') {
     process.exit(1);
   }
 
-  run({ port, timeout });
+  run({ port, timeout, path: pathFlag, host: hostFlag });
 } else if (!subcommand || subcommand === 'serve') {
   // Existing relay server logic
   const portStr = parseFlag('--port');
+  const pathFlag = parseFlag('--path') ?? '/__twd/ws';
   let port = 9876;
   if (portStr) {
     port = parseInt(portStr, 10);
@@ -70,13 +78,14 @@ if (subcommand === 'run') {
 
   const server = createServer();
   const relay = createTwdRelay(server, {
+    path: pathFlag,
     onError(err) {
       console.error('[twd-relay] Error:', err.message);
     },
   });
 
   server.listen(port, () => {
-    console.log(`TWD Relay running on ws://localhost:${port}/__twd/ws`);
+    console.log(`TWD Relay running on ws://localhost:${port}${pathFlag}`);
     console.log('Waiting for connections...');
   });
 

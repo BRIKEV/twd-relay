@@ -85,4 +85,56 @@ describe('twdRemote Vite plugin', () => {
       (plugin.configureServer as Function)(mockViteServer);
     }).not.toThrow();
   });
+
+  it('should auto-detect base path from configResolved', async () => {
+    const plugin = twdRemote();
+
+    // Simulate Vite calling configResolved with a custom base
+    (plugin.configResolved as Function)({ base: '/my-path/' });
+
+    const mockViteServer = { httpServer: server };
+    (plugin.configureServer as Function)(mockViteServer);
+
+    // Relay should be reachable at /my-path/__twd/ws
+    const ws = new WebSocket(`ws://localhost:${port}/my-path/__twd/ws`);
+    const msg = await new Promise<unknown>((resolve, reject) => {
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ type: 'hello', role: 'client' }));
+      });
+      ws.on('message', (data) => {
+        resolve(JSON.parse(data.toString()));
+      });
+      ws.on('error', reject);
+    });
+
+    expect(msg).toEqual({ type: 'connected', browser: false });
+    ws.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+
+  it('should use explicit path option over configResolved base', async () => {
+    const plugin = twdRemote({ path: '/explicit/ws' });
+
+    // configResolved sets a base, but explicit path should win
+    (plugin.configResolved as Function)({ base: '/my-path/' });
+
+    const mockViteServer = { httpServer: server };
+    (plugin.configureServer as Function)(mockViteServer);
+
+    // Explicit path should work
+    const ws = new WebSocket(`ws://localhost:${port}/explicit/ws`);
+    const msg = await new Promise<unknown>((resolve, reject) => {
+      ws.on('open', () => {
+        ws.send(JSON.stringify({ type: 'hello', role: 'client' }));
+      });
+      ws.on('message', (data) => {
+        resolve(JSON.parse(data.toString()));
+      });
+      ws.on('error', reject);
+    });
+
+    expect(msg).toEqual({ type: 'connected', browser: false });
+    ws.close();
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
 });

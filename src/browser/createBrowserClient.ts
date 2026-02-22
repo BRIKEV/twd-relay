@@ -43,9 +43,9 @@ interface TwdRunnerEvents {
   onSuiteEnd?: (suite: TwdHandler) => void;
 }
 
-function getDefaultUrl(): string {
+function getDefaultUrl(path: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/__twd/ws`;
+  return `${protocol}//${window.location.host}${path}`;
 }
 
 function getSuiteName(handler: TwdHandler, handlers: Map<string, TwdHandler>): string {
@@ -55,7 +55,7 @@ function getSuiteName(handler: TwdHandler, handlers: Map<string, TwdHandler>): s
 }
 
 export function createBrowserClient(options?: BrowserClientOptions): BrowserClient {
-  const url = options?.url ?? getDefaultUrl();
+  const url = options?.url ?? getDefaultUrl(options?.path ?? '/__twd/ws');
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
   const enableLog = options?.log ?? false;

@@ -3,11 +3,13 @@ import WebSocket from 'ws';
 export interface RunOptions {
   port: number;
   timeout: number;
+  path: string;
+  host: string;
 }
 
 export function run(options: RunOptions): void {
-  const { port, timeout } = options;
-  const url = `ws://localhost:${port}/__twd/ws`;
+  const { port, timeout, path, host } = options;
+  const url = `ws://${host}:${port}${path}`;
 
   console.log(`Connecting to ${url}...`);
 
