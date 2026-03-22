@@ -18,7 +18,7 @@ Your app runs tests in the browser with twd-js. twd-relay adds a relay server an
 
 1. Browser connects → sends `{ type: 'hello', role: 'browser' }`
 2. Client connects → sends `{ type: 'hello', role: 'client' }`
-3. Client sends `{ type: 'run', scope: 'all' }` → relay forwards to browser
+3. Client sends `{ type: 'run', scope: 'all' }` (optionally with `testNames` to filter) → relay forwards to browser
 4. Browser runs tests and streams events → relay broadcasts to clients
 5. `run:complete` clears the run lock (and the send-run script exits)
 
@@ -114,7 +114,40 @@ Then in your app you can omit the URL; the client defaults to `ws(s)://<current 
 | `twd-relay/browser` | Browser client: `createBrowserClient(options)` |
 | `twd-relay/vite`   | Vite plugin: `twdRemote(options)` |
 
-CLI: `twd-relay` (or `npx twd-relay`) runs the standalone relay; supports `--port`.
+CLI: `twd-relay` (or `npx twd-relay`) — two subcommands:
+
+- `twd-relay serve` (default) — start the standalone relay
+- `twd-relay run` — connect to a relay and trigger a test run
+
+---
+
+## CLI `run` command
+
+Connect to an existing relay, trigger tests, stream output, and exit with 0 (all pass) or 1 (failures).
+
+```bash
+# Run all tests (connects to Vite dev server on port 5173 by default)
+twd-relay run
+
+# Run on a different port
+twd-relay run --port 9876
+
+# Run specific tests by name (substring match, case-insensitive)
+twd-relay run --test "should show error"
+
+# Multiple filters — runs tests matching any of them
+twd-relay run --test "login" --test "signup"
+```
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--port <port>` | Relay port | 5173 |
+| `--host <host>` | Relay host | localhost |
+| `--path <path>` | WebSocket path | `/__twd/ws` |
+| `--timeout <ms>` | Timeout | 180000 |
+| `--test <name>` | Filter tests by name substring (repeatable) | — |
+
+When `--test` is used and no tests match, the CLI prints the available test names so you can correct the filter.
 
 ---
 
