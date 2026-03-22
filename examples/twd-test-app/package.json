@@ -10,6 +10,7 @@
     "preview": "vite preview",
     "dev:ci": "CI=true VITE_COVERAGE=true vite",
     "test:ci": "node scripts/run-tests-ci.js",
+    "test:e2e": "node scripts/run-e2e.js",
     "collect:coverage:html": "npx nyc report --reporter=html --report-dir=coverage",
     "collect:coverage:lcov": "npx nyc report --reporter=lcov --report-dir=coverage",
     "collect:coverage:text": "npx nyc report --reporter=text --report-dir=coverage"
@@ -33,6 +34,7 @@
     "globals": "^16.3.0",
     "puppeteer": "^24.30.0",
     "twd-js": "^1.6.2",
+    "twd-relay": "file:../../",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.39.1",
     "vite": "^7.2.2",
