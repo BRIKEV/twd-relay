@@ -53,9 +53,11 @@ export type TwdErrorCode =
 **`handleRunCommand(testNames?: string[])`** — when `testNames` is present:
 
 1. Filter `handlers` for entries where `type === 'test'` and `name` contains any of the provided substrings (case-insensitive via `.toLowerCase()`)
-2. If no matches, send error and return early (no `run:start` or `run:complete`):
+2. If no matches, send `run:start` with `testCount: 0`, then the `NO_MATCH` error, then `run:complete` with zero counts. This ensures the relay's `runInProgress` lock is cleared and the CLI exits cleanly:
    ```json
+   { "type": "run:start", "testCount": 0 }
    { "type": "error", "code": "NO_MATCH", "message": "No tests matched: [\"foo\"]. Available tests: [\"test A\", \"test B\"]" }
+   { "type": "run:complete", "passed": 0, "failed": 0, "skipped": 0, "duration": 0 }
    ```
 3. If matches found, update `testCount` in `run:start` to reflect only matched tests
 4. Call `runner.runByIds(matchedIds)` instead of `runner.runAll()`
@@ -72,10 +74,11 @@ if (parsed.type === 'run') {
 ### 3. CLI — `src/cli/standalone.ts` + `src/cli/run.ts`
 
 **`standalone.ts`:**
-- Add `parseFlagAll(name)` helper that collects all occurrences of a repeated flag into an array
+- Add `parseFlagAll(name)` helper that collects all occurrences of a repeated flag into an array. This is separate from the existing `parseFlag` which returns only the first match — `parseFlagAll` is only used for `--test`
 - Parse `--test` flags: `const testNames = parseFlagAll('--test')`
 - Pass `testNames` into `run({ port, timeout, path, host, testNames })`
 - Update help text to document the `--test` flag
+- `--test` is only relevant for the `run` subcommand; it is not parsed for `serve`
 
 **`run.ts`:**
 - Add `testNames?: string[]` to `RunOptions`
@@ -95,7 +98,7 @@ if (parsed.type === 'run') {
 
 ## Error handling
 
-- **NO_MATCH**: Browser sends error with available test names. CLI prints it via existing error handler. Connection stays open until timeout. AI agent sees the error with the full test list and can retry with corrected names.
+- **NO_MATCH**: Browser sends `run:start(0)` + error + `run:complete(zeros)`. This clears the relay's `runInProgress` lock and lets the CLI exit with code 0 (no failures). The AI agent sees the error with the full test list and can retry with corrected names.
 - **Runner errors**: Existing try/catch in `handleRunCommand` sends `RUNNER_ERROR` — covers `runByIds` failures naturally.
 
 ## Files to modify
