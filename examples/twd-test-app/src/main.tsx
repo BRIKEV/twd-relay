@@ -25,12 +25,10 @@ if (import.meta.env.DEV) {
     .catch((err) => {
       console.error("Error initializing request mocking:", err);
     });
-  // Browser client: connects to the relay and runs tests when it receives a "run" command.
-  // To trigger a run, use a client (e.g. from repo root: npm run send-run).
-  const { createBrowserClient } = await import('../../../dist/browser.es.js');
-  const client = createBrowserClient({
-    url: 'ws://localhost:9876/__twd/ws',
-  });
+  // Browser client: connects to the relay via the Vite plugin.
+  // To trigger a run: npx twd-relay run (or node ../../dist/cli.js run)
+  const { createBrowserClient } = await import('twd-relay/browser');
+  const client = createBrowserClient();
   client.connect();
 }
 

@@ -83,7 +83,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     window.dispatchEvent(new CustomEvent('twd:state-change'));
   }
 
-  async function handleRunCommand(): Promise<void> {
+  async function handleRunCommand(testNames?: string[]): Promise<void> {
     const twdState = window.__TWD_STATE__;
     if (!twdState) {
       warn('TWD not initialized — make sure twd-js is loaded before running tests');
@@ -92,7 +92,40 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     }
 
     const handlers = twdState.handlers;
-    const testCount = Array.from(handlers.values()).filter(h => h.type === 'test').length;
+    let testIds: string[] | undefined;
+
+    if (testNames && testNames.length > 0) {
+      const lowerNames = testNames.map(n => n.toLowerCase());
+      const matched: string[] = [];
+      for (const [, handler] of handlers) {
+        if (handler.type === 'test') {
+          const lowerName = handler.name.toLowerCase();
+          if (lowerNames.some(n => lowerName.includes(n))) {
+            matched.push(handler.id);
+          }
+        }
+      }
+
+      if (matched.length === 0) {
+        const available = Array.from(handlers.values())
+          .filter(h => h.type === 'test')
+          .map(h => h.name);
+        send({ type: 'run:start', testCount: 0 });
+        send({
+          type: 'error',
+          code: 'NO_MATCH',
+          message: `No tests matched: ${JSON.stringify(testNames)}. Available tests: ${JSON.stringify(available)}`,
+        });
+        send({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 });
+        return;
+      }
+
+      testIds = matched;
+    }
+
+    const testCount = testIds
+      ? testIds.length
+      : Array.from(handlers.values()).filter(h => h.type === 'test').length;
     send({ type: 'run:start', testCount });
 
     let passed = 0;
@@ -158,11 +191,14 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
       },
     };
 
-    // Dynamically import TestRunner from twd-js/runner
     try {
       const { TestRunner } = await import('twd-js/runner');
       const runner = new TestRunner(events);
-      await runner.runAll();
+      if (testIds) {
+        await runner.runByIds(testIds);
+      } else {
+        await runner.runAll();
+      }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err);
       warn('Runner error:', errorMsg);
@@ -199,7 +235,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   }
 
   function handleMessage(event: MessageEvent): void {
-    let parsed: { type?: string };
+    let parsed: { type?: string; testNames?: string[] };
     try {
       parsed = JSON.parse(event.data);
     } catch {
@@ -208,7 +244,8 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
     if (parsed.type === 'run') {
       log('Received run command — running tests...');
-      handleRunCommand();
+      const testNames = Array.isArray(parsed.testNames) ? parsed.testNames : undefined;
+      handleRunCommand(testNames);
     } else if (parsed.type === 'status') {
       handleStatusCommand();
     }

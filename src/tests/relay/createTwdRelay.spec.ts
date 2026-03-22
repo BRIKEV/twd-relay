@@ -140,6 +140,18 @@ describe('createTwdRelay', () => {
     expect(msg).toEqual({ type: 'run', scope: 'all' });
   });
 
+  it('should forward run command with testNames to browser', async () => {
+    const browser = track(await connectAs('browser'));
+    const client = track(await connectAs('client'));
+    // Drain connected message
+    await client.nextMessage();
+
+    client.ws.send(JSON.stringify({ type: 'run', scope: 'all', testNames: ['adds numbers'] }));
+    const msg = await browser.nextMessage();
+
+    expect(msg).toEqual({ type: 'run', scope: 'all', testNames: ['adds numbers'] });
+  });
+
   it('should return RUN_IN_PROGRESS when a run is active', async () => {
     const browser = track(await connectAs('browser'));
     const client = track(await connectAs('client'));

@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import istanbul from 'vite-plugin-istanbul';
+import { twdRemote } from 'twd-relay/vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
+    twdRemote(),
     // configure istanbul plugin
     istanbul({
       include: 'src/**/*',

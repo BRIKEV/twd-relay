@@ -173,4 +173,87 @@ describe('Browser client protocol (integration via relay)', () => {
     const msg = await browser2.nextMessage();
     expect(msg).toEqual({ type: 'run', scope: 'all' });
   });
+
+  it('should forward testNames in run command to browser', async () => {
+    const browser = track(await connectAs('browser'));
+    const client = track(await connectAs('client'));
+    await client.nextMessage();
+
+    // Browser responds to filtered run
+    browser.ws.on('message', (data) => {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === 'run' && msg.testNames) {
+        // Simulate: only matched test runs
+        browser.ws.send(JSON.stringify({ type: 'run:start', testCount: 1 }));
+        browser.ws.send(JSON.stringify({ type: 'test:start', id: '1', name: 'adds numbers', suite: 'Math' }));
+        browser.ws.send(JSON.stringify({ type: 'test:pass', id: '1', name: 'adds numbers', suite: 'Math', duration: 5 }));
+        browser.ws.send(JSON.stringify({ type: 'run:complete', passed: 1, failed: 0, skipped: 0, duration: 5 }));
+      }
+    });
+
+    client.ws.send(JSON.stringify({ type: 'run', scope: 'all', testNames: ['adds'] }));
+
+    const messages: unknown[] = [];
+    for (let i = 0; i < 4; i++) {
+      messages.push(await client.nextMessage());
+    }
+
+    expect(messages[0]).toEqual({ type: 'run:start', testCount: 1 });
+    expect(messages[1]).toEqual({ type: 'test:start', id: '1', name: 'adds numbers', suite: 'Math' });
+    expect(messages[2]).toEqual({ type: 'test:pass', id: '1', name: 'adds numbers', suite: 'Math', duration: 5 });
+    expect(messages[3]).toEqual({ type: 'run:complete', passed: 1, failed: 0, skipped: 0, duration: 5 });
+  });
+
+  it('should handle NO_MATCH and still clear run lock', async () => {
+    const browser = track(await connectAs('browser'));
+    const client = track(await connectAs('client'));
+    await client.nextMessage();
+
+    let runCount = 0;
+    // Browser responds with NO_MATCH sequence on first run, then normally on second
+    browser.ws.on('message', (data) => {
+      const msg = JSON.parse(data.toString());
+      if (msg.type === 'run') {
+        runCount++;
+        if (runCount === 1 && msg.testNames && msg.testNames[0] === 'nonexistent') {
+          // First run with nonexistent filter
+          browser.ws.send(JSON.stringify({ type: 'run:start', testCount: 0 }));
+          browser.ws.send(JSON.stringify({ type: 'error', code: 'NO_MATCH', message: 'No tests matched: ["nonexistent"]' }));
+          browser.ws.send(JSON.stringify({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 }));
+        } else if (runCount === 2) {
+          // Second run should succeed - verify run lock was cleared
+          browser.ws.send(JSON.stringify({ type: 'run:start', testCount: 1 }));
+          browser.ws.send(JSON.stringify({ type: 'test:start', id: '1', name: 'test', suite: 'Suite' }));
+          browser.ws.send(JSON.stringify({ type: 'test:pass', id: '1', name: 'test', suite: 'Suite', duration: 1 }));
+          browser.ws.send(JSON.stringify({ type: 'run:complete', passed: 1, failed: 0, skipped: 0, duration: 1 }));
+        }
+      }
+    });
+
+    client.ws.send(JSON.stringify({ type: 'run', scope: 'all', testNames: ['nonexistent'] }));
+
+    const msg1 = await client.nextMessage();
+    expect(msg1).toEqual({ type: 'run:start', testCount: 0 });
+
+    const msg2 = await client.nextMessage();
+    expect(msg2).toMatchObject({ type: 'error', code: 'NO_MATCH' });
+
+    const msg3 = await client.nextMessage();
+    expect(msg3).toEqual({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 });
+
+    // Verify run lock is cleared — can start another run
+    client.ws.send(JSON.stringify({ type: 'run', scope: 'all' }));
+
+    const msg4 = await client.nextMessage();
+    expect(msg4).toEqual({ type: 'run:start', testCount: 1 });
+
+    const msg5 = await client.nextMessage();
+    expect(msg5).toEqual({ type: 'test:start', id: '1', name: 'test', suite: 'Suite' });
+
+    const msg6 = await client.nextMessage();
+    expect(msg6).toEqual({ type: 'test:pass', id: '1', name: 'test', suite: 'Suite', duration: 1 });
+
+    const msg7 = await client.nextMessage();
+    expect(msg7).toEqual({ type: 'run:complete', passed: 1, failed: 0, skipped: 0, duration: 1 });
+  });
 });

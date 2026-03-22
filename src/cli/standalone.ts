@@ -13,6 +13,16 @@ function parseFlag(name: string): string | undefined {
   return undefined;
 }
 
+function parseFlagAll(name: string): string[] {
+  const values: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === name && args[i + 1] && !args[i + 1].startsWith('--')) {
+      values.push(args[i + 1]);
+    }
+  }
+  return values;
+}
+
 function printHelp() {
   console.log(`Usage: twd-relay [command] [options]
 
@@ -29,6 +39,7 @@ Options for run:
   --host <host>      Relay host to connect to (default: localhost)
   --path <path>      WebSocket path (default: /__twd/ws)
   --timeout <ms>     Timeout in ms (default: 180000)
+  --test <name>      Filter tests by name substring (repeatable)
 
 Examples:
   twd-relay                     # start relay on port 9876
@@ -36,7 +47,9 @@ Examples:
   twd-relay run                 # trigger run via Vite dev server on 5173
   twd-relay run --port 9876     # trigger run on custom port
   twd-relay run --host 192.168.1.10 --path /app/__twd/ws
-  twd-relay run --timeout 30000 # custom timeout`);
+  twd-relay run --timeout 30000 # custom timeout
+  twd-relay run --test "login"           # run tests matching "login"
+  twd-relay run --test "login" --test "signup"  # run multiple`);
 }
 
 if (args.includes('--help') || args.includes('-h')) {
@@ -62,7 +75,9 @@ if (subcommand === 'run') {
     process.exit(1);
   }
 
-  run({ port, timeout, path: pathFlag, host: hostFlag });
+  const testNames = parseFlagAll('--test');
+
+  run({ port, timeout, path: pathFlag, host: hostFlag, testNames: testNames.length > 0 ? testNames : undefined });
 } else if (!subcommand || subcommand === 'serve') {
   // Existing relay server logic
   const portStr = parseFlag('--port');
