@@ -17,6 +17,7 @@ export type HelloMessage = HelloBrowserMessage | HelloClientMessage;
 export interface RunCommand {
   type: 'run';
   scope: 'all';
+  testNames?: string[];
 }
 
 export interface StatusCommand {
@@ -91,7 +92,8 @@ export type TwdErrorCode =
   | 'NO_BROWSER'
   | 'RUN_IN_PROGRESS'
   | 'UNKNOWN_COMMAND'
-  | 'INVALID_MESSAGE';
+  | 'INVALID_MESSAGE'
+  | 'NO_MATCH';
 
 export interface TwdErrorMessage {
   type: 'error';
