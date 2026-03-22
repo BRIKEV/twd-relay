@@ -5,10 +5,11 @@ export interface RunOptions {
   timeout: number;
   path: string;
   host: string;
+  testNames?: string[];
 }
 
 export function run(options: RunOptions): void {
-  const { port, timeout, path, host } = options;
+  const { port, timeout, path, host, testNames } = options;
   const url = `ws://${host}:${port}${path}`;
 
   console.log(`Connecting to ${url}...`);
@@ -36,7 +37,9 @@ export function run(options: RunOptions): void {
         if (msg.browser && !runSent) {
           runSent = true;
           console.log('Browser connected, triggering test run...\n');
-          ws.send(JSON.stringify({ type: 'run', scope: 'all' }));
+          const runMsg: Record<string, unknown> = { type: 'run', scope: 'all' };
+          if (testNames?.length) runMsg.testNames = testNames;
+          ws.send(JSON.stringify(runMsg));
         } else if (!msg.browser) {
           console.log('Waiting for browser to connect...');
         }
