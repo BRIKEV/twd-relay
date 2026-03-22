@@ -27,13 +27,13 @@ twd-relay is a WebSocket relay that lets AI agents and external tools trigger an
 
 **Vite Plugin** (`src/vite/`, exported as `twd-relay/vite`) — A Vite plugin that hooks into `configureServer` to attach the relay to the dev server's HTTP instance.
 
-**CLI** (`src/cli/`, bin: `twd-relay`) — Two subcommands: `serve` (default) starts a standalone HTTP server with the relay on port 9876; `run` connects to an existing relay as a client, sends a `run` command, streams test output, and exits with code 0/1 based on results. The `run` subcommand defaults to port 5173 (Vite dev server) and has a 180s timeout.
+**CLI** (`src/cli/`, bin: `twd-relay`) — Two subcommands: `serve` (default) starts a standalone HTTP server with the relay on port 9876; `run` connects to an existing relay as a client, sends a `run` command, streams test output, and exits with code 0/1 based on results. The `run` subcommand defaults to port 5173 (Vite dev server) and has a 180s timeout. Use `--test "name"` (repeatable) to filter tests by name substring match.
 
 ### Message protocol flow
 
 1. Browser connects with `{ type: 'hello', role: 'browser' }`
 2. Clients connect with `{ type: 'hello', role: 'client' }`
-3. Client sends `{ type: 'run', scope: 'all' }` → relay forwards to browser
+3. Client sends `{ type: 'run', scope: 'all' }` (optionally with `testNames: string[]` for filtered runs) → relay forwards to browser
 4. Browser streams test events → relay broadcasts to all clients
 5. `run:complete` clears the run lock
 
@@ -62,7 +62,7 @@ From repo root:
 
 ## Test Patterns
 
-- **21 tests** across 3 files, runs in ~1.5s
+- **26 tests** across 3 files, runs in ~1.5s
 - Each test file uses **unique ports** (9877, 9878, 9879+) to avoid conflicts
 - WebSocket tests use a **`TrackedWs` wrapper** that buffers incoming messages into a queue. This prevents race conditions — `nextMessage()` either returns a queued message or waits for the next one. This pattern is critical; without it, messages arrive before assertions are set up.
 - A new browser connection replaces any existing one (closed with code 1000, reason "Replaced by new browser")
