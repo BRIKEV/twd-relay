@@ -1,0 +1,34 @@
+name: E2E Integration
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [22, 24]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Build twd-relay
+        run: npm run build
+
+      - name: Install example dependencies
+        run: cd examples/twd-test-app && npm install
+
+      - name: Run E2E integration tests
+        run: cd examples/twd-test-app && npm run test:e2e
