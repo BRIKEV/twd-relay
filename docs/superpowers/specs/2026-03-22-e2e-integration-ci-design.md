@@ -31,12 +31,12 @@ Add script:
 
 **`examples/twd-test-app/vite.config.ts`** — add the Vite plugin:
 ```ts
-import { twdRelay } from 'twd-relay/vite'
+import { twdRemote } from 'twd-relay/vite'
 
 export default defineConfig({
   plugins: [
     react(),
-    twdRelay(),
+    twdRemote(),
     istanbul({ ... }),
   ],
 })
@@ -47,7 +47,7 @@ This attaches the relay to the Vite dev server on the default path `/__twd/ws`.
 **`examples/twd-test-app/src/main.tsx`** — switch from hardcoded dist import to package import:
 ```ts
 const { createBrowserClient } = await import('twd-relay/browser');
-const client = createBrowserClient();  // auto-detects ws://localhost:5173/__twd/ws
+const client = createBrowserClient();  // auto-detects from window.location
 client.connect();
 ```
 
@@ -59,10 +59,10 @@ A Node script that manages the full lifecycle:
 
 1. **Spawn Vite dev server** as a child process (`npm run dev`)
 2. **Poll `http://localhost:5173`** until it responds (timeout 30s)
-3. **Launch puppeteer** headless, navigate to `http://localhost:5173` — browser client auto-connects to relay
-4. **Wait** for twd-js to initialize and register test handlers
-5. **Run pass 1:** spawn `twd-relay run` CLI (from `../../dist/cli.js`), pipe stdout/stderr to parent. Captures exit code — 0 means all tests pass, 1 means failures.
-6. **Run pass 2:** spawn `twd-relay run --test "<known test name>"` to validate the `--test` flag end-to-end. Pick a known test name from the example's test files.
+3. **Launch puppeteer** headless with `--no-sandbox` and `--disable-setuid-sandbox` args (required for GitHub Actions Ubuntu runners), navigate to `http://localhost:5173` — browser client auto-connects to relay
+4. **Wait for twd-js initialization** — use a polling loop that sends `status` commands via WebSocket to the relay and checks for registered tests. Fall back to a sleep (3-5s) if simpler, matching the existing `run-tests-ci.js` approach.
+5. **Run pass 1:** spawn `node ../../dist/cli.js run`, pipe stdout/stderr to parent. Uses the built CLI directly (the `file:../../` link also makes `npx twd-relay` available, but `node ../../dist/cli.js` is more explicit). Captures exit code — 0 means all tests pass, 1 means failures.
+6. **Run pass 2:** spawn `node ../../dist/cli.js run --test "<known test name>"` to validate the `--test` flag end-to-end. Pick a known test name from the example's test files.
 7. **Cleanup:** close puppeteer, kill Vite process, exit with combined result (fail if either pass failed)
 
 **Error handling:**
@@ -120,7 +120,7 @@ If either pass exits non-zero, the script fails.
 | File | Change |
 |------|--------|
 | `examples/twd-test-app/package.json` | Add `twd-relay: "file:../../"` dep, add `test:e2e` script |
-| `examples/twd-test-app/vite.config.ts` | Add `twdRelay()` plugin |
+| `examples/twd-test-app/vite.config.ts` | Add `twdRemote()` plugin |
 | `examples/twd-test-app/src/main.tsx` | Import from `twd-relay/browser` instead of dist path |
 | `examples/twd-test-app/scripts/run-e2e.js` | New orchestrator script |
 | `.github/workflows/e2e.yml` | New workflow |
