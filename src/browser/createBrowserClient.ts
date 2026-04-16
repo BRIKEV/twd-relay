@@ -1,4 +1,5 @@
 import type { BrowserClient, BrowserClientOptions } from './types';
+import { createFaviconManager } from './faviconManager';
 
 declare global {
   interface Window {
@@ -69,6 +70,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     console.warn(logPrefix, ...args);
   }
 
+  const faviconManager = createFaviconManager(document);
   let ws: WebSocket | null = null;
   let intentionalClose = false;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -87,6 +89,8 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     const heartbeatInterval = setInterval(() => {
       send({ type: 'heartbeat' });
     }, 3000);
+
+    faviconManager.set('running');
 
     try {
       const twdState = window.__TWD_STATE__;
@@ -122,6 +126,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
             message: `No tests matched: ${JSON.stringify(testNames)}. Available tests: ${JSON.stringify(available)}`,
           });
           send({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 });
+          faviconManager.set('pass');
           return;
         }
 
@@ -212,6 +217,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
       const duration = performance.now() - runStart;
       send({ type: 'run:complete', passed, failed, skipped, duration });
+      faviconManager.set(failed > 0 ? 'fail' : 'pass');
       dispatchStateChange();
     } finally {
       clearInterval(heartbeatInterval);
@@ -279,6 +285,8 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
     ws.addEventListener('open', () => {
       send({ type: 'hello', role: 'browser' });
+      faviconManager.save();
+      faviconManager.set('connected');
       log('Connected to relay — ready to receive run/status commands');
     });
 
@@ -286,6 +294,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
 
     ws.addEventListener('close', (event) => {
       ws = null;
+      faviconManager.restore();
 
       // If replaced by another browser instance, don't reconnect — the relay
       // only supports one browser and this instance has been evicted.
