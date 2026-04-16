@@ -18,5 +18,7 @@ export type {
   TestFailEvent,
   TestSkipEvent,
   RunCompleteEvent,
+  RunAbandonedEvent,
+  HeartbeatMessage,
   InboundMessage,
 } from './types';

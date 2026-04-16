@@ -26,6 +26,12 @@ export interface StatusCommand {
 
 export type Command = RunCommand | StatusCommand;
 
+// --- Heartbeat (browser -> relay, not forwarded) ---
+
+export interface HeartbeatMessage {
+  type: 'heartbeat';
+}
+
 // --- Events (browser → clients via relay) ---
 
 export interface ConnectedEvent {
@@ -77,6 +83,11 @@ export interface RunCompleteEvent {
   duration: number;
 }
 
+export interface RunAbandonedEvent {
+  type: 'run:abandoned';
+  reason: 'heartbeat_timeout';
+}
+
 export type BrowserEvent =
   | ConnectedEvent
   | RunStartEvent
@@ -84,7 +95,8 @@ export type BrowserEvent =
   | TestPassEvent
   | TestFailEvent
   | TestSkipEvent
-  | RunCompleteEvent;
+  | RunCompleteEvent
+  | RunAbandonedEvent;
 
 // --- Errors ---
 
@@ -103,7 +115,7 @@ export interface TwdErrorMessage {
 
 // --- Aggregate types ---
 
-export type InboundMessage = HelloMessage | Command | BrowserEvent;
+export type InboundMessage = HelloMessage | Command | HeartbeatMessage | BrowserEvent;
 
 // --- Relay options & return ---
 
