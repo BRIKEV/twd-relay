@@ -108,7 +108,14 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
         return;
       }
       if (runInProgress) {
-        sendError(ws, 'RUN_IN_PROGRESS', 'A test run is already in progress');
+        sendError(
+          ws,
+          'RUN_IN_PROGRESS',
+          'A test run is already in progress. If the previous run appears stuck, ' +
+            'the browser tab may be backgrounded and throttled — foreground the TWD tab ' +
+            '(identified by the "[TWD …]" title prefix) or reload it. The relay also ' +
+            'auto-clears the lock after 120s of heartbeat silence.'
+        );
         return;
       }
       runInProgress = true;

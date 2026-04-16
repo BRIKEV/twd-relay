@@ -1,5 +1,6 @@
 import type { BrowserClient, BrowserClientOptions } from './types';
 import { createFaviconManager } from './faviconManager';
+import { createRunMonitor } from './runMonitor';
 
 declare global {
   interface Window {
@@ -60,6 +61,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
   const enableLog = options?.log ?? false;
+  const defaultMaxTestDurationMs = options?.maxTestDurationMs ?? 5_000;
   const logPrefix = '[twd-relay]';
 
   function log(...args: unknown[]): void {
@@ -85,9 +87,50 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     window.dispatchEvent(new CustomEvent('twd:state-change'));
   }
 
-  async function handleRunCommand(testNames?: string[]): Promise<void> {
-    const heartbeatInterval = setInterval(() => {
+  async function handleRunCommand(
+    testNames?: string[],
+    parsed: { maxTestDurationMs?: number } = {},
+  ): Promise<void> {
+    const thresholdMs =
+      typeof parsed.maxTestDurationMs === 'number'
+        ? parsed.maxTestDurationMs
+        : defaultMaxTestDurationMs;
+    const monitor = createRunMonitor({ thresholdMs });
+
+    let passed = 0;
+    let failed = 0;
+    let skipped = 0;
+    const runStart = performance.now();
+
+    let heartbeatInterval: ReturnType<typeof setInterval>;
+
+    function fireAbort(breach: { testName: string; durationMs: number }): void {
+      if (monitor.isAborted()) return;
+      monitor.markAborted();
+      send({
+        type: 'run:aborted',
+        reason: 'throttled',
+        durationMs: breach.durationMs,
+        testName: breach.testName,
+      });
+      send({
+        type: 'run:complete',
+        passed,
+        failed,
+        skipped,
+        duration: performance.now() - runStart,
+      });
+      // Paint the tab indicator to match the wire state now; otherwise the
+      // favicon stays 'running' until the (possibly hung) runner promise resolves.
+      faviconManager.set('fail');
+      dispatchStateChange();
+      clearInterval(heartbeatInterval);
+    }
+
+    heartbeatInterval = setInterval(() => {
       send({ type: 'heartbeat' });
+      const breach = monitor.checkThreshold();
+      if (breach) fireAbort(breach);
     }, 3000);
 
     faviconManager.set('running');
@@ -138,13 +181,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
         : Array.from(handlers.values()).filter(h => h.type === 'test').length;
       send({ type: 'run:start', testCount });
 
-      let passed = 0;
-      let failed = 0;
-      let skipped = 0;
-      const runStart = performance.now();
-
       const events: TwdRunnerEvents = {
         onStart(test: TwdHandler) {
+          if (monitor.isAborted()) return;
+          monitor.onTestStart(test.name);
           test.status = 'running';
           dispatchStateChange();
           send({
@@ -155,6 +195,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onPass(test: TwdHandler) {
+          const breach = monitor.onTestEnd();
+          if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           passed++;
           test.status = 'pass';
           dispatchStateChange();
@@ -167,6 +213,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onFail(test: TwdHandler, error: Error) {
+          const breach = monitor.onTestEnd();
+          if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           failed++;
           test.status = 'fail';
           test.logs = [error.message];
@@ -181,6 +233,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onSkip(test: TwdHandler) {
+          const breach = monitor.onTestEnd();
+          if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           skipped++;
           test.status = 'skip';
           dispatchStateChange();
@@ -192,10 +250,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onSuiteStart(suite: TwdHandler) {
+          if (monitor.isAborted()) return;
           suite.status = 'running';
           dispatchStateChange();
         },
         onSuiteEnd(suite: TwdHandler) {
+          if (monitor.isAborted()) return;
           suite.status = 'idle';
           dispatchStateChange();
         },
@@ -217,11 +277,20 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
         // set(failed > 0 ? 'fail' : 'pass') lands on red and run:complete
         // accurately reflects that something went wrong.
         failed++;
+        // Clear the monitor's in-flight slot so a stale test name can't trip
+        // a threshold breach after the crash.
+        monitor.onTestEnd();
       }
 
       const duration = performance.now() - runStart;
-      send({ type: 'run:complete', passed, failed, skipped, duration });
-      faviconManager.set(failed > 0 ? 'fail' : 'pass');
+      if (!monitor.isAborted()) {
+        send({ type: 'run:complete', passed, failed, skipped, duration });
+        faviconManager.set(failed > 0 ? 'fail' : 'pass');
+      } else {
+        // Abort already sent its own run:complete; paint the tab as failed
+        // so the user sees the abnormal termination.
+        faviconManager.set('fail');
+      }
       dispatchStateChange();
     } finally {
       clearInterval(heartbeatInterval);
@@ -253,7 +322,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   }
 
   function handleMessage(event: MessageEvent): void {
-    let parsed: { type?: string; testNames?: string[] };
+    let parsed: { type?: string; testNames?: string[]; maxTestDurationMs?: number };
     try {
       parsed = JSON.parse(event.data);
     } catch {
@@ -263,7 +332,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     if (parsed.type === 'run') {
       log('Received run command — running tests...');
       const testNames = Array.isArray(parsed.testNames) ? parsed.testNames : undefined;
-      handleRunCommand(testNames);
+      handleRunCommand(testNames, parsed);
     } else if (parsed.type === 'status') {
       handleStatusCommand();
     }

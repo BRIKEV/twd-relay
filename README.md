@@ -79,6 +79,21 @@ Once connected, the browser client sets a colored favicon and prefixes `document
 
 On disconnect or eviction (another tab taking over), the original favicon and title are restored.
 
+### Aborting throttled runs
+
+Chrome aggressively throttles timers in backgrounded tabs, which can stretch a 1-second test run to 30+ seconds. To avoid AI/CI hangs, the browser client monitors per-test wall-clock time. If any single test runs longer than 5 seconds (configurable), the browser emits `run:aborted`, the CLI prints a clear error with recovery guidance, and the run ends with exit code 1.
+
+Override the threshold with `--max-test-duration <ms>` on `twd-relay run`, or pass `maxTestDurationMs` to `createBrowserClient`. Set it to `0` to disable detection entirely:
+
+```bash
+twd-relay run --max-test-duration 15000   # raise to 15s for heavy multistep tests
+twd-relay run --max-test-duration 0       # disable detection
+```
+
+The default of 5 s is deliberate: real TWD tests are typically sub-second, and 5 s is a strong throttling signal. Heavy legitimate tests (complex multistep forms, many API calls) may need to raise this.
+
+Recovery when an abort fires: foreground the TWD tab (identified by the `[TWD …]` title prefix set by the favicon indicator) and retry. For unattended runs (CI, agents), prefer `twd-cli`: it drives a headless browser where the tab is always focused and throttling doesn't apply.
+
 **3. Open your app in a browser** — the page connects to the relay as “browser”.
 
 **4. Trigger a run** — something must connect as a **client** and send `run`:

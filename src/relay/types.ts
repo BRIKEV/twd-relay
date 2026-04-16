@@ -18,6 +18,10 @@ export interface RunCommand {
   type: 'run';
   scope: 'all';
   testNames?: string[];
+  /** Max wall-clock ms any single test may run before the browser aborts
+   *  the run with reason 'throttled'. 0 disables detection. Omit to let
+   *  the browser use its own default (5000). */
+  maxTestDurationMs?: number;
 }
 
 export interface StatusCommand {
@@ -88,6 +92,13 @@ export interface RunAbandonedEvent {
   reason: 'heartbeat_timeout';
 }
 
+export interface RunAbortedEvent {
+  type: 'run:aborted';
+  reason: 'throttled';
+  durationMs: number;
+  testName: string;
+}
+
 export type BrowserEvent =
   | ConnectedEvent
   | RunStartEvent
@@ -96,7 +107,8 @@ export type BrowserEvent =
   | TestFailEvent
   | TestSkipEvent
   | RunCompleteEvent
-  | RunAbandonedEvent;
+  | RunAbandonedEvent
+  | RunAbortedEvent;
 
 // --- Errors ---
 
