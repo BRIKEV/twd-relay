@@ -7,7 +7,7 @@ export interface RunMonitor {
 }
 
 export interface RunMonitorOptions {
-  /** Max wall-clock ms any single test may run. 0 disables detection. */
+  /** Max wall-clock ms any single test may run. Any non-positive value (0 or negative) disables detection. */
   thresholdMs: number;
   /** Clock function; defaults to performance.now. Override for testing. */
   now?: () => number;

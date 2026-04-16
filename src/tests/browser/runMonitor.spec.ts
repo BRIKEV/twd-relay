@@ -44,6 +44,16 @@ describe('runMonitor', () => {
     expect(result?.durationMs).toBe(1500);
   });
 
+  it('checkThreshold returns null when duration exactly equals threshold', () => {
+    const clock = makeClock();
+    const monitor = createRunMonitor({ thresholdMs: 1000, now: clock.now });
+    monitor.onTestStart('boundary test');
+    clock.advance(1000);
+    expect(monitor.checkThreshold()).toBeNull();
+    clock.advance(1);
+    expect(monitor.checkThreshold()).not.toBeNull();
+  });
+
   it('onTestEnd clears the current test — checkThreshold then returns null', () => {
     const clock = makeClock();
     const monitor = createRunMonitor({ thresholdMs: 1000, now: clock.now });
