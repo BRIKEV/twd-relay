@@ -68,6 +68,17 @@ const client = createBrowserClient({
 client.connect();
 ```
 
+Once connected, the browser client sets a colored favicon and prefixes `document.title` so you can spot the active TWD tab at a glance:
+
+| Favicon | Title prefix | State |
+|---|---|---|
+| Blue | `[TWD]` | Connected, idle |
+| Orange | `[TWD ...]` | Tests running |
+| Green | `[TWD ✓]` | Last run passed |
+| Red | `[TWD ✗]` | Last run had failures |
+
+On disconnect or eviction (another tab taking over), the original favicon and title are restored.
+
 **3. Open your app in a browser** — the page connects to the relay as “browser”.
 
 **4. Trigger a run** — something must connect as a **client** and send `run`:

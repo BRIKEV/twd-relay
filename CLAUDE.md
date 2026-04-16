@@ -23,7 +23,7 @@ twd-relay is a WebSocket relay that lets AI agents and external tools trigger an
 
 **Relay Server** (`src/relay/`, exported as `twd-relay`) — A WebSocket server that attaches to an HTTP server. It manages exactly one browser connection and many client connections. Clients send commands (`run`, `status`); the relay forwards them to the browser. The browser sends test lifecycle events (`test:start`, `test:pass`, `test:fail`, `run:complete`, etc.); the relay broadcasts them to all clients. A `runInProgress` lock prevents concurrent test runs.
 
-**Browser Client** (`src/browser/`, exported as `twd-relay/browser`) — Runs in the browser. Connects to the relay, listens for commands, dynamically imports `twd-js/runner` to execute tests, and streams results back. Uses native browser `WebSocket` with auto-reconnect. Reads test state from `window.__TWD_STATE__` (set by twd-js).
+**Browser Client** (`src/browser/`, exported as `twd-relay/browser`) — Runs in the browser. Connects to the relay, listens for commands, dynamically imports `twd-js/runner` to execute tests, and streams results back. Uses native browser `WebSocket` with auto-reconnect. Reads test state from `window.__TWD_STATE__` (set by twd-js). A small `faviconManager` (in `src/browser/faviconManager.ts`) sets a colored favicon + `document.title` prefix based on connection/run state so the active TWD tab is identifiable among multiple tabs to the same origin.
 
 **Vite Plugin** (`src/vite/`, exported as `twd-relay/vite`) — A Vite plugin that hooks into `configureServer` to attach the relay to the dev server's HTTP instance.
 
