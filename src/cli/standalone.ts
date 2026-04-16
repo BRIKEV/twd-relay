@@ -42,7 +42,7 @@ Options for run:
   --test <name>                   Filter tests by name substring (repeatable)
   --max-test-duration <ms>        Abort if any single test exceeds this many
                                   ms (default from browser client, typically
-                                  10000; 0 disables)
+                                  5000; 0 disables)
 
 Examples:
   twd-relay                     # start relay on port 9876

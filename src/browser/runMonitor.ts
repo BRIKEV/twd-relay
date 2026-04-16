@@ -1,6 +1,11 @@
 export interface RunMonitor {
   onTestStart(name: string): void;
-  onTestEnd(): void;
+  /**
+   * Records the end of the current test. Returns breach info if the test's
+   * elapsed duration exceeded the threshold; otherwise null. Always clears
+   * the in-flight slot regardless of return value.
+   */
+  onTestEnd(): { testName: string; durationMs: number } | null;
   checkThreshold(): { testName: string; durationMs: number } | null;
   markAborted(): void;
   isAborted(): boolean;
@@ -26,9 +31,17 @@ export function createRunMonitor(options: RunMonitorOptions): RunMonitor {
       currentTestStart = now();
       currentTestName = name;
     },
-    onTestEnd(): void {
+    onTestEnd() {
+      if (currentTestStart === null || currentTestName === null) {
+        return null;
+      }
+      const name = currentTestName;
+      const durationMs = now() - currentTestStart;
       currentTestStart = null;
       currentTestName = null;
+      if (thresholdMs <= 0) return null;
+      if (durationMs <= thresholdMs) return null;
+      return { testName: name, durationMs };
     },
     checkThreshold() {
       if (thresholdMs <= 0) return null;

@@ -91,4 +91,34 @@ describe('runMonitor', () => {
     expect(result?.testName).toBe('second');
     expect(result?.durationMs).toBe(1100);
   });
+
+  it('onTestEnd returns breach info when the just-ended test exceeded threshold', () => {
+    const clock = makeClock();
+    const monitor = createRunMonitor({ thresholdMs: 1000, now: clock.now });
+    monitor.onTestStart('slow');
+    clock.advance(1500);
+    const breach = monitor.onTestEnd();
+    expect(breach).toEqual({ testName: 'slow', durationMs: 1500 });
+  });
+
+  it('onTestEnd returns null when the just-ended test was under threshold', () => {
+    const clock = makeClock();
+    const monitor = createRunMonitor({ thresholdMs: 1000, now: clock.now });
+    monitor.onTestStart('fast');
+    clock.advance(500);
+    expect(monitor.onTestEnd()).toBeNull();
+  });
+
+  it('onTestEnd returns null when called with no test in flight', () => {
+    const monitor = createRunMonitor({ thresholdMs: 1000 });
+    expect(monitor.onTestEnd()).toBeNull();
+  });
+
+  it('onTestEnd returns null when detection is disabled even if duration was large', () => {
+    const clock = makeClock();
+    const monitor = createRunMonitor({ thresholdMs: 0, now: clock.now });
+    monitor.onTestStart('huge');
+    clock.advance(1_000_000);
+    expect(monitor.onTestEnd()).toBeNull();
+  });
 });

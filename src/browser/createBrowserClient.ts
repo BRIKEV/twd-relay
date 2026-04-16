@@ -61,7 +61,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
   const enableLog = options?.log ?? false;
-  const defaultMaxTestDurationMs = options?.maxTestDurationMs ?? 10_000;
+  const defaultMaxTestDurationMs = options?.maxTestDurationMs ?? 5_000;
   const logPrefix = '[twd-relay]';
 
   function log(...args: unknown[]): void {
@@ -102,10 +102,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
     let skipped = 0;
     const runStart = performance.now();
 
-    const heartbeatInterval = setInterval(() => {
-      send({ type: 'heartbeat' });
-      const breach = monitor.checkThreshold();
-      if (!breach || monitor.isAborted()) return;
+    let heartbeatInterval: ReturnType<typeof setInterval>;
+
+    function fireAbort(breach: { testName: string; durationMs: number }): void {
+      if (monitor.isAborted()) return;
       monitor.markAborted();
       send({
         type: 'run:aborted',
@@ -125,6 +125,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
       faviconManager.set('fail');
       dispatchStateChange();
       clearInterval(heartbeatInterval);
+    }
+
+    heartbeatInterval = setInterval(() => {
+      send({ type: 'heartbeat' });
+      const breach = monitor.checkThreshold();
+      if (breach) fireAbort(breach);
     }, 3000);
 
     faviconManager.set('running');
@@ -189,8 +195,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onPass(test: TwdHandler) {
-          monitor.onTestEnd();
+          const breach = monitor.onTestEnd();
           if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           passed++;
           test.status = 'pass';
           dispatchStateChange();
@@ -203,8 +213,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onFail(test: TwdHandler, error: Error) {
-          monitor.onTestEnd();
+          const breach = monitor.onTestEnd();
           if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           failed++;
           test.status = 'fail';
           test.logs = [error.message];
@@ -219,8 +233,12 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
           });
         },
         onSkip(test: TwdHandler) {
-          monitor.onTestEnd();
+          const breach = monitor.onTestEnd();
           if (monitor.isAborted()) return;
+          if (breach) {
+            fireAbort(breach);
+            return;
+          }
           skipped++;
           test.status = 'skip';
           dispatchStateChange();

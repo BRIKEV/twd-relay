@@ -32,7 +32,7 @@ This is the minimum-coupling trade: the AI is unblocked fast; the browser tab ch
 
 | Setting | Value |
 |---|---|
-| Default | **10 000 ms** per test |
+| Default | **5 000 ms** per test (TWD tests are typically sub-second; 5 s is a strong throttling signal without false-positives on legitimate 1–3 s tests) |
 | Disable | Set the option or flag to `0` |
 | Browser option | `maxTestDurationMs?: number` on `BrowserClientOptions` |
 | CLI flag | `--max-test-duration <ms>` on `twd-relay run` |
@@ -90,6 +90,15 @@ The relay forwards unknown fields verbatim (its current behavior), so the only r
    - `dispatchStateChange()` is still called for the sidebar UI.
 6. The `finally` block (`clearInterval(heartbeatInterval)`) is a no-op since we already cleared the interval in the abort tick.
 
+## Detection: two complementary triggers
+
+A single heartbeat-tick check is not sufficient. Under real-world throttling the tick (3 s interval) can miss tests that complete just under threshold mid-tick — the staircase pattern observed in practice had tests of ~5 s each, none individually long enough for a tick to catch but collectively turning a 1 s run into a 27 s run. The monitor therefore exposes two triggers:
+
+- **In-flight check (`checkThreshold`)** — fired by the existing 3 s heartbeat tick. Catches tests that are still running past the threshold, so the AI does not have to wait for the slow test to complete before seeing the abort.
+- **Completed-test check (`onTestEnd` return value)** — fired synchronously at the end of each test. Returns breach info if the just-ended test exceeded the threshold. Catches the common case where a test completes in ~(threshold) seconds (e.g. 5–8 s under throttling, with a 5 s threshold).
+
+Both triggers call the same `fireAbort(breach)` path: mark aborted, emit `run:aborted` + `run:complete`, paint the favicon `fail`, clear the heartbeat interval. The abort is idempotent — subsequent triggers are no-ops.
+
 ## Browser client changes
 
 Inside `handleRunCommand`, track per-test start time and an `aborted` flag. The existing heartbeat `setInterval` gains a second responsibility: threshold check.
@@ -136,7 +145,7 @@ Threshold resolution:
 function resolveThreshold(fromCommand?: number, fromOption?: number): number {
   if (typeof fromCommand === 'number') return fromCommand;   // 0 honored as "disabled"
   if (typeof fromOption === 'number') return fromOption;
-  return 10_000;
+  return 5_000;
 }
 ```
 
@@ -146,7 +155,7 @@ function resolveThreshold(fromCommand?: number, fromOption?: number): number {
 /**
  * Maximum wall-clock time any single test may run before the browser
  * aborts the run with reason 'throttled'. Typically triggered when the
- * tab is backgrounded and Chrome throttles timers. Default: 10000 (ms).
+ * tab is backgrounded and Chrome throttles timers. Default: 5000 (ms).
  * Set to 0 to disable detection.
  */
 maxTestDurationMs?: number;

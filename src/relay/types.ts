@@ -20,7 +20,7 @@ export interface RunCommand {
   testNames?: string[];
   /** Max wall-clock ms any single test may run before the browser aborts
    *  the run with reason 'throttled'. 0 disables detection. Omit to let
-   *  the browser use its own default (10000). */
+   *  the browser use its own default (5000). */
   maxTestDurationMs?: number;
 }
 
