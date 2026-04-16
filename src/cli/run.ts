@@ -6,10 +6,11 @@ export interface RunOptions {
   path: string;
   host: string;
   testNames?: string[];
+  maxTestDurationMs?: number;
 }
 
 export function run(options: RunOptions): void {
-  const { port, timeout, path, host, testNames } = options;
+  const { port, timeout, path, host, testNames, maxTestDurationMs } = options;
   const url = `ws://${host}:${port}${path}`;
 
   console.log(`Connecting to ${url}...`);
@@ -39,6 +40,7 @@ export function run(options: RunOptions): void {
           console.log('Browser connected, triggering test run...\n');
           const runMsg: Record<string, unknown> = { type: 'run', scope: 'all' };
           if (testNames?.length) runMsg.testNames = testNames;
+          if (maxTestDurationMs !== undefined) runMsg.maxTestDurationMs = maxTestDurationMs;
           ws.send(JSON.stringify(runMsg));
         } else if (!msg.browser) {
           console.log('Waiting for browser to connect...');
@@ -78,6 +80,18 @@ export function run(options: RunOptions): void {
         clearTimeout(timer);
         ws.close();
         process.exit(failed || msg.failed > 0 ? 1 : 0);
+        break;
+      }
+
+      case 'run:aborted': {
+        failed = true;
+        const seconds = typeof msg.durationMs === 'number' ? (msg.durationMs / 1000).toFixed(1) : '?';
+        console.error(
+          `\nRun aborted: test "${msg.testName ?? '?'}" ran for ${seconds}s — threshold exceeded.\n` +
+            `The TWD browser tab is likely backgrounded and throttled by the browser.\n` +
+            `Foreground the TWD tab (identified by the "[TWD …]" title prefix) and keep it active, then retry.\n` +
+            `For unattended runs, prefer \`twd-cli\` which drives a headless browser with no tab throttling.`
+        );
         break;
       }
 

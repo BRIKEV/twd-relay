@@ -35,11 +35,14 @@ Options for serve:
   --path <path>   WebSocket path (default: /__twd/ws)
 
 Options for run:
-  --port <port>      Relay port to connect to (default: 5173)
-  --host <host>      Relay host to connect to (default: localhost)
-  --path <path>      WebSocket path (default: /__twd/ws)
-  --timeout <ms>     Timeout in ms (default: 180000)
-  --test <name>      Filter tests by name substring (repeatable)
+  --port <port>                   Relay port to connect to (default: 5173)
+  --host <host>                   Relay host to connect to (default: localhost)
+  --path <path>                   WebSocket path (default: /__twd/ws)
+  --timeout <ms>                  Timeout in ms (default: 180000)
+  --test <name>                   Filter tests by name substring (repeatable)
+  --max-test-duration <ms>        Abort if any single test exceeds this many
+                                  ms (default from browser client, typically
+                                  10000; 0 disables)
 
 Examples:
   twd-relay                     # start relay on port 9876
@@ -49,7 +52,9 @@ Examples:
   twd-relay run --host 192.168.1.10 --path /app/__twd/ws
   twd-relay run --timeout 30000 # custom timeout
   twd-relay run --test "login"           # run tests matching "login"
-  twd-relay run --test "login" --test "signup"  # run multiple`);
+  twd-relay run --test "login" --test "signup"  # run multiple
+  twd-relay run --max-test-duration 30000         # raise abort threshold to 30s
+  twd-relay run --max-test-duration 0             # disable abort detection`);
 }
 
 if (args.includes('--help') || args.includes('-h')) {
@@ -77,7 +82,24 @@ if (subcommand === 'run') {
 
   const testNames = parseFlagAll('--test');
 
-  run({ port, timeout, path: pathFlag, host: hostFlag, testNames: testNames.length > 0 ? testNames : undefined });
+  const maxDurationStr = parseFlag('--max-test-duration');
+  let maxTestDurationMs: number | undefined;
+  if (maxDurationStr !== undefined) {
+    maxTestDurationMs = parseInt(maxDurationStr, 10);
+    if (isNaN(maxTestDurationMs)) {
+      console.error('Invalid --max-test-duration value:', maxDurationStr);
+      process.exit(1);
+    }
+  }
+
+  run({
+    port,
+    timeout,
+    path: pathFlag,
+    host: hostFlag,
+    testNames: testNames.length > 0 ? testNames : undefined,
+    maxTestDurationMs,
+  });
 } else if (!subcommand || subcommand === 'serve') {
   // Existing relay server logic
   const portStr = parseFlag('--port');
