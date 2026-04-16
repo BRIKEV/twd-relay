@@ -48,6 +48,9 @@ export function createFaviconManager(doc: Document): FaviconManager {
 
   return {
     save() {
+      // Idempotent: if a save is already active, ignore — otherwise on reconnect
+      // we'd capture the TWD-modified favicon/title as the "original".
+      if (savedTitle !== null) return;
       const existing = doc.querySelector<HTMLLinkElement>("link[rel='icon']");
       hadIconLink = existing !== null;
       savedHref = existing?.href ?? null;
@@ -70,7 +73,12 @@ export function createFaviconManager(doc: Document): FaviconManager {
     },
     set(state) {
       const link = getOrCreateLink();
+      // Use setAttribute rather than link.href = — some DOM impls (happy-dom,
+      // jsdom) normalize the .href getter to an absolute URL, which would turn
+      // "data:image/svg+xml,…" into "about:blank/data:…" when read back.
       link.setAttribute('href', FAVICON_DATA_URIS[state]);
+      // Always prefix against the saved (pre-TWD) title so rapid state changes
+      // do not compound prefixes (e.g. "[TWD ...] [TWD] My App").
       const baseTitle = savedTitle ?? doc.title;
       doc.title = TITLE_PREFIXES[state] + baseTitle;
     },

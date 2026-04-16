@@ -40,6 +40,24 @@ describe('faviconManager.save', () => {
     // no icon existed — nothing else to assert here; Task 5 verifies removal on restore
     expect(document.querySelector("link[rel='icon']")).toBeNull();
   });
+
+  it('is idempotent — a second save() call does not overwrite the original capture', () => {
+    const original = document.createElement('link');
+    original.rel = 'icon';
+    original.href = 'https://example.com/app.ico';
+    document.head.appendChild(original);
+
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('connected');
+    // Simulate a reconnect where save() runs again while TWD state is still applied.
+    mgr.save();
+    mgr.restore();
+
+    expect(document.title).toBe('My App');
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    expect(link?.href).toBe('https://example.com/app.ico');
+  });
 });
 
 describe('faviconManager.set', () => {
