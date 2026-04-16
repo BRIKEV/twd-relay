@@ -30,6 +30,21 @@ export function createFaviconManager(doc: Document): FaviconManager {
   let savedHref: string | null = null;
   let savedTitle: string | null = null;
   let hadIconLink = false;
+  let linkElement: HTMLLinkElement | null = null;
+
+  function getOrCreateLink(): HTMLLinkElement {
+    if (linkElement && linkElement.isConnected) return linkElement;
+    const existing = doc.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (existing) {
+      linkElement = existing;
+    } else {
+      const link = doc.createElement('link');
+      link.rel = 'icon';
+      doc.head.appendChild(link);
+      linkElement = link;
+    }
+    return linkElement;
+  }
 
   return {
     save() {
@@ -37,22 +52,27 @@ export function createFaviconManager(doc: Document): FaviconManager {
       hadIconLink = existing !== null;
       savedHref = existing?.href ?? null;
       savedTitle = doc.title;
+      linkElement = existing;
     },
     restore() {
       if (savedTitle !== null) {
         doc.title = savedTitle;
       }
-      if (hadIconLink && savedHref !== null) {
-        const link = doc.querySelector<HTMLLinkElement>("link[rel='icon']");
-        if (link) link.href = savedHref;
+      if (!hadIconLink && linkElement && linkElement.isConnected) {
+        linkElement.remove();
+      } else if (hadIconLink && savedHref !== null && linkElement) {
+        linkElement.setAttribute('href', savedHref);
       }
       savedHref = null;
       savedTitle = null;
       hadIconLink = false;
+      linkElement = null;
     },
-    set() {
-      // Implemented in Task 4
-      throw new Error('not implemented');
+    set(state) {
+      const link = getOrCreateLink();
+      link.setAttribute('href', FAVICON_DATA_URIS[state]);
+      const baseTitle = savedTitle ?? doc.title;
+      doc.title = TITLE_PREFIXES[state] + baseTitle;
     },
   };
 }

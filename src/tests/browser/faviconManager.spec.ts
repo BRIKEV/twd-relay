@@ -41,3 +41,63 @@ describe('faviconManager.save', () => {
     expect(document.querySelector("link[rel='icon']")).toBeNull();
   });
 });
+
+describe('faviconManager.set', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.title = 'My App';
+  });
+
+  it('sets the favicon to the blue dot and prefixes title when state is connected', () => {
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('connected');
+
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    expect(link?.getAttribute('href')).toContain('%234A90D9');
+    expect(document.title).toBe('[TWD] My App');
+  });
+
+  it('switches through all states without compounding the title prefix', () => {
+    const mgr = createFaviconManager(document);
+    mgr.save();
+
+    mgr.set('connected');
+    expect(document.title).toBe('[TWD] My App');
+
+    mgr.set('running');
+    expect(document.title).toBe('[TWD ...] My App');
+
+    mgr.set('pass');
+    expect(document.title).toBe('[TWD ✓] My App');
+
+    mgr.set('fail');
+    expect(document.title).toBe('[TWD ✗] My App');
+  });
+
+  it('reuses an existing <link rel="icon"> element rather than creating another', () => {
+    const original = document.createElement('link');
+    original.rel = 'icon';
+    original.href = 'https://example.com/app.ico';
+    document.head.appendChild(original);
+
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('running');
+
+    const links = document.querySelectorAll("link[rel='icon']");
+    expect(links.length).toBe(1);
+    expect(links[0]).toBe(original);
+    expect(original.getAttribute('href')).toContain('%23F5A623');
+  });
+
+  it('creates a <link rel="icon"> when none exists', () => {
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('pass');
+
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute('href')).toContain('%237ED321');
+  });
+});
