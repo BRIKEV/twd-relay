@@ -25,3 +25,34 @@ export const TITLE_PREFIXES: Record<FaviconState, string> = {
   pass:      '[TWD ✓] ',
   fail:      '[TWD ✗] ',
 };
+
+export function createFaviconManager(doc: Document): FaviconManager {
+  let savedHref: string | null = null;
+  let savedTitle: string | null = null;
+  let hadIconLink = false;
+
+  return {
+    save() {
+      const existing = doc.querySelector<HTMLLinkElement>("link[rel='icon']");
+      hadIconLink = existing !== null;
+      savedHref = existing?.href ?? null;
+      savedTitle = doc.title;
+    },
+    restore() {
+      if (savedTitle !== null) {
+        doc.title = savedTitle;
+      }
+      if (hadIconLink && savedHref !== null) {
+        const link = doc.querySelector<HTMLLinkElement>("link[rel='icon']");
+        if (link) link.href = savedHref;
+      }
+      savedHref = null;
+      savedTitle = null;
+      hadIconLink = false;
+    },
+    set() {
+      // Implemented in Task 4
+      throw new Error('not implemented');
+    },
+  };
+}
