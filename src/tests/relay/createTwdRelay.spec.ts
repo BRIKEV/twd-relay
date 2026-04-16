@@ -304,4 +304,43 @@ describe('createTwdRelay', () => {
     expect(err.message).toContain('foreground');
     expect(err.message).toContain('heartbeat');
   });
+
+  it('forwards maxTestDurationMs in run command to the browser', async () => {
+    const browser = track(await connectAs('browser'));
+    const client = track(await connectAs('client'));
+    await client.nextMessage(); // drain connected:true
+
+    client.ws.send(JSON.stringify({ type: 'run', scope: 'all', maxTestDurationMs: 5000 }));
+    const forwarded = (await new Promise<string>((resolve) => {
+      browser.ws.once('message', (data) => resolve(data.toString()));
+    }));
+    const parsed = JSON.parse(forwarded) as { type: string; maxTestDurationMs?: number };
+
+    expect(parsed.type).toBe('run');
+    expect(parsed.maxTestDurationMs).toBe(5000);
+  });
+
+  it('broadcasts run:aborted events from the browser to all clients', async () => {
+    const browser = track(await connectAs('browser'));
+    const client = track(await connectAs('client'));
+    await client.nextMessage(); // drain connected:true
+
+    browser.ws.send(JSON.stringify({
+      type: 'run:aborted',
+      reason: 'throttled',
+      durationMs: 12000,
+      testName: 'some slow test',
+    }));
+
+    const received = (await client.nextMessage()) as {
+      type: string;
+      reason?: string;
+      durationMs?: number;
+      testName?: string;
+    };
+    expect(received.type).toBe('run:aborted');
+    expect(received.reason).toBe('throttled');
+    expect(received.durationMs).toBe(12000);
+    expect(received.testName).toBe('some slow test');
+  });
 });
