@@ -20,7 +20,18 @@ Your app runs tests in the browser with twd-js. twd-relay adds a relay server an
 2. Client connects → sends `{ type: 'hello', role: 'client' }`
 3. Client sends `{ type: 'run', scope: 'all' }` (optionally with `testNames` to filter) → relay forwards to browser
 4. Browser runs tests and streams events → relay broadcasts to clients
-5. `run:complete` clears the run lock (and the send-run script exits)
+5. Browser sends `{ type: 'heartbeat' }` every 3s during a run (relay consumes these, never forwarded to clients)
+6. `run:complete` clears the run lock (and the send-run script exits)
+
+### Heartbeat & frozen-tab recovery
+
+During an active test run the browser sends a heartbeat every 3 seconds. The relay tracks the last heartbeat time and checks every 10 seconds. If no heartbeat arrives for **120 seconds** during an active run, the relay considers the run dead (browser tab frozen by the OS), resets the run lock, and broadcasts to all clients:
+
+```json
+{ "type": "run:abandoned", "reason": "heartbeat_timeout" }
+```
+
+The CLI prints a clear message — `Run abandoned — browser tab appears frozen. Refresh the browser tab and retry.` — and exits with code 1. This is especially useful for AI agent workflows, where the agent gets an actionable signal instead of a silent 180s timeout followed by a cryptic `RUN_IN_PROGRESS` error.
 
 ---
 

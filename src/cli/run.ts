@@ -81,6 +81,15 @@ export function run(options: RunOptions): void {
         break;
       }
 
+      case 'run:abandoned':
+        console.error(
+          '\nRun abandoned — browser tab appears frozen. Refresh the browser tab and retry.'
+        );
+        clearTimeout(timer);
+        ws.close();
+        process.exit(1);
+        break;
+
       case 'error':
         console.error(`Error [${msg.code}]: ${msg.message}`);
         break;

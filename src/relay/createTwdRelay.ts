@@ -13,6 +13,11 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
   let browser: WebSocket | null = null;
   const clients = new Set<WebSocket>();
   let runInProgress = false;
+  let lastHeartbeat: number | null = null;
+  let heartbeatCheckTimer: ReturnType<typeof setInterval> | null = null;
+
+  const HEARTBEAT_TIMEOUT_MS = 120_000;
+  const HEARTBEAT_CHECK_INTERVAL_MS = 10_000;
 
   function sendError(ws: WebSocket, code: TwdErrorCode, message: string): void {
     const msg = { type: 'error', code, message };
@@ -40,6 +45,31 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
     broadcastToClients(JSON.stringify({ type: 'connected', browser: false }));
   }
 
+  function startHeartbeatTracking(): void {
+    lastHeartbeat = Date.now();
+    heartbeatCheckTimer = setInterval(() => {
+      if (runInProgress && lastHeartbeat !== null) {
+        const elapsed = Date.now() - lastHeartbeat;
+        if (elapsed > HEARTBEAT_TIMEOUT_MS) {
+          runInProgress = false;
+          stopHeartbeatTracking();
+          broadcastToClients(JSON.stringify({
+            type: 'run:abandoned',
+            reason: 'heartbeat_timeout',
+          }));
+        }
+      }
+    }, HEARTBEAT_CHECK_INTERVAL_MS);
+  }
+
+  function stopHeartbeatTracking(): void {
+    lastHeartbeat = null;
+    if (heartbeatCheckTimer !== null) {
+      clearInterval(heartbeatCheckTimer);
+      heartbeatCheckTimer = null;
+    }
+  }
+
   function handleBrowserMessage(data: string): void {
     let parsed: { type?: string };
     try {
@@ -47,8 +77,13 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
     } catch {
       return;
     }
+    if (parsed.type === 'heartbeat') {
+      lastHeartbeat = Date.now();
+      return; // don't forward to clients
+    }
     if (parsed.type === 'run:complete') {
       runInProgress = false;
+      stopHeartbeatTracking();
     }
     broadcastToClients(data);
   }
@@ -77,6 +112,7 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
         return;
       }
       runInProgress = true;
+      startHeartbeatTracking();
       browser.send(data);
       return;
     }
@@ -122,11 +158,13 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
           }
           browser = ws;
           runInProgress = false;
+          stopHeartbeatTracking();
 
           ws.on('close', () => {
             if (browser === ws) {
               browser = null;
               runInProgress = false;
+              stopHeartbeatTracking();
               notifyBrowserDisconnected();
             }
           });
@@ -186,6 +224,7 @@ export function createTwdRelay(server: Server, options?: TwdRelayOptions): TwdRe
   return {
     close() {
       server.removeListener('upgrade', upgradeHandler);
+      stopHeartbeatTracking();
 
       for (const client of clients) {
         client.close(1000, 'Relay shutting down');

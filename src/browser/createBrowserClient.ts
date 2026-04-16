@@ -84,130 +84,138 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   }
 
   async function handleRunCommand(testNames?: string[]): Promise<void> {
-    const twdState = window.__TWD_STATE__;
-    if (!twdState) {
-      warn('TWD not initialized — make sure twd-js is loaded before running tests');
-      send({ type: 'error', code: 'NO_TWD', message: 'TWD not initialized' });
-      return;
-    }
+    const heartbeatInterval = setInterval(() => {
+      send({ type: 'heartbeat' });
+    }, 3000);
 
-    const handlers = twdState.handlers;
-    let testIds: string[] | undefined;
-
-    if (testNames && testNames.length > 0) {
-      const lowerNames = testNames.map(n => n.toLowerCase());
-      const matched: string[] = [];
-      for (const [, handler] of handlers) {
-        if (handler.type === 'test') {
-          const lowerName = handler.name.toLowerCase();
-          if (lowerNames.some(n => lowerName.includes(n))) {
-            matched.push(handler.id);
-          }
-        }
-      }
-
-      if (matched.length === 0) {
-        const available = Array.from(handlers.values())
-          .filter(h => h.type === 'test')
-          .map(h => h.name);
-        send({ type: 'run:start', testCount: 0 });
-        send({
-          type: 'error',
-          code: 'NO_MATCH',
-          message: `No tests matched: ${JSON.stringify(testNames)}. Available tests: ${JSON.stringify(available)}`,
-        });
-        send({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 });
+    try {
+      const twdState = window.__TWD_STATE__;
+      if (!twdState) {
+        warn('TWD not initialized — make sure twd-js is loaded before running tests');
+        send({ type: 'error', code: 'NO_TWD', message: 'TWD not initialized' });
         return;
       }
 
-      testIds = matched;
-    }
+      const handlers = twdState.handlers;
+      let testIds: string[] | undefined;
 
-    const testCount = testIds
-      ? testIds.length
-      : Array.from(handlers.values()).filter(h => h.type === 'test').length;
-    send({ type: 'run:start', testCount });
+      if (testNames && testNames.length > 0) {
+        const lowerNames = testNames.map(n => n.toLowerCase());
+        const matched: string[] = [];
+        for (const [, handler] of handlers) {
+          if (handler.type === 'test') {
+            const lowerName = handler.name.toLowerCase();
+            if (lowerNames.some(n => lowerName.includes(n))) {
+              matched.push(handler.id);
+            }
+          }
+        }
 
-    let passed = 0;
-    let failed = 0;
-    let skipped = 0;
-    const runStart = performance.now();
+        if (matched.length === 0) {
+          const available = Array.from(handlers.values())
+            .filter(h => h.type === 'test')
+            .map(h => h.name);
+          send({ type: 'run:start', testCount: 0 });
+          send({
+            type: 'error',
+            code: 'NO_MATCH',
+            message: `No tests matched: ${JSON.stringify(testNames)}. Available tests: ${JSON.stringify(available)}`,
+          });
+          send({ type: 'run:complete', passed: 0, failed: 0, skipped: 0, duration: 0 });
+          return;
+        }
 
-    const events: TwdRunnerEvents = {
-      onStart(test: TwdHandler) {
-        test.status = 'running';
-        dispatchStateChange();
-        send({
-          type: 'test:start',
-          id: test.id,
-          name: test.name,
-          suite: getSuiteName(test, handlers),
-        });
-      },
-      onPass(test: TwdHandler) {
-        passed++;
-        test.status = 'pass';
-        dispatchStateChange();
-        send({
-          type: 'test:pass',
-          id: test.id,
-          name: test.name,
-          suite: getSuiteName(test, handlers),
-          duration: performance.now() - runStart,
-        });
-      },
-      onFail(test: TwdHandler, error: Error) {
-        failed++;
-        test.status = 'fail';
-        test.logs = [error.message];
-        dispatchStateChange();
-        send({
-          type: 'test:fail',
-          id: test.id,
-          name: test.name,
-          suite: getSuiteName(test, handlers),
-          error: error.message,
-          duration: performance.now() - runStart,
-        });
-      },
-      onSkip(test: TwdHandler) {
-        skipped++;
-        test.status = 'skip';
-        dispatchStateChange();
-        send({
-          type: 'test:skip',
-          id: test.id,
-          name: test.name,
-          suite: getSuiteName(test, handlers),
-        });
-      },
-      onSuiteStart(suite: TwdHandler) {
-        suite.status = 'running';
-        dispatchStateChange();
-      },
-      onSuiteEnd(suite: TwdHandler) {
-        suite.status = 'idle';
-        dispatchStateChange();
-      },
-    };
-
-    try {
-      const { TestRunner } = await import('twd-js/runner');
-      const runner = new TestRunner(events);
-      if (testIds) {
-        await runner.runByIds(testIds);
-      } else {
-        await runner.runAll();
+        testIds = matched;
       }
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-      warn('Runner error:', errorMsg);
-      send({ type: 'error', code: 'RUNNER_ERROR', message: errorMsg });
-    }
 
-    const duration = performance.now() - runStart;
-    send({ type: 'run:complete', passed, failed, skipped, duration });
-    dispatchStateChange();
+      const testCount = testIds
+        ? testIds.length
+        : Array.from(handlers.values()).filter(h => h.type === 'test').length;
+      send({ type: 'run:start', testCount });
+
+      let passed = 0;
+      let failed = 0;
+      let skipped = 0;
+      const runStart = performance.now();
+
+      const events: TwdRunnerEvents = {
+        onStart(test: TwdHandler) {
+          test.status = 'running';
+          dispatchStateChange();
+          send({
+            type: 'test:start',
+            id: test.id,
+            name: test.name,
+            suite: getSuiteName(test, handlers),
+          });
+        },
+        onPass(test: TwdHandler) {
+          passed++;
+          test.status = 'pass';
+          dispatchStateChange();
+          send({
+            type: 'test:pass',
+            id: test.id,
+            name: test.name,
+            suite: getSuiteName(test, handlers),
+            duration: performance.now() - runStart,
+          });
+        },
+        onFail(test: TwdHandler, error: Error) {
+          failed++;
+          test.status = 'fail';
+          test.logs = [error.message];
+          dispatchStateChange();
+          send({
+            type: 'test:fail',
+            id: test.id,
+            name: test.name,
+            suite: getSuiteName(test, handlers),
+            error: error.message,
+            duration: performance.now() - runStart,
+          });
+        },
+        onSkip(test: TwdHandler) {
+          skipped++;
+          test.status = 'skip';
+          dispatchStateChange();
+          send({
+            type: 'test:skip',
+            id: test.id,
+            name: test.name,
+            suite: getSuiteName(test, handlers),
+          });
+        },
+        onSuiteStart(suite: TwdHandler) {
+          suite.status = 'running';
+          dispatchStateChange();
+        },
+        onSuiteEnd(suite: TwdHandler) {
+          suite.status = 'idle';
+          dispatchStateChange();
+        },
+      };
+
+      try {
+        const { TestRunner } = await import('twd-js/runner');
+        const runner = new TestRunner(events);
+        if (testIds) {
+          await runner.runByIds(testIds);
+        } else {
+          await runner.runAll();
+        }
+      } catch (err) {
+        const errorMsg = err instanceof Error ? err.message : String(err);
+        warn('Runner error:', errorMsg);
+        send({ type: 'error', code: 'RUNNER_ERROR', message: errorMsg });
+      }
+
+      const duration = performance.now() - runStart;
+      send({ type: 'run:complete', passed, failed, skipped, duration });
+      dispatchStateChange();
+    } finally {
+      clearInterval(heartbeatInterval);
+    }
   }
 
   function handleStatusCommand(): void {
