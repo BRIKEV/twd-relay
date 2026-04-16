@@ -120,6 +120,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
         skipped,
         duration: performance.now() - runStart,
       });
+      // Paint the tab indicator to match the wire state now; otherwise the
+      // favicon stays 'running' until the (possibly hung) runner promise resolves.
+      faviconManager.set('fail');
+      dispatchStateChange();
       clearInterval(heartbeatInterval);
     }, 3000);
 
@@ -255,6 +259,9 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
         // set(failed > 0 ? 'fail' : 'pass') lands on red and run:complete
         // accurately reflects that something went wrong.
         failed++;
+        // Clear the monitor's in-flight slot so a stale test name can't trip
+        // a threshold breach after the crash.
+        monitor.onTestEnd();
       }
 
       const duration = performance.now() - runStart;
