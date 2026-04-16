@@ -166,11 +166,11 @@ describe('createTwdRelay', () => {
     client.ws.send(JSON.stringify({ type: 'run', scope: 'all' }));
     const msg = await client.nextMessage();
 
-    expect(msg).toEqual({
+    expect(msg).toMatchObject({
       type: 'error',
       code: 'RUN_IN_PROGRESS',
-      message: 'A test run is already in progress',
     });
+    expect((msg as any).message).toContain('already in progress');
   });
 
   it('should reset run lock when run:complete is received from browser', async () => {
@@ -282,5 +282,26 @@ describe('createTwdRelay', () => {
     expect(relay.clientCount).toBe(0);
     expect(browser.ws.readyState).toBe(WebSocket.CLOSED);
     expect(client.ws.readyState).toBe(WebSocket.CLOSED);
+  });
+
+  it('RUN_IN_PROGRESS error message includes recovery guidance', async () => {
+    const browser = track(await connectAs('browser'));
+    const client1 = track(await connectAs('client'));
+    await client1.nextMessage(); // drain connected:true
+
+    // First run starts and is in progress
+    client1.ws.send(JSON.stringify({ type: 'run', scope: 'all' }));
+    await new Promise<unknown>((resolve) => browser.ws.once('message', resolve));
+
+    // Second client tries to start another run — should get RUN_IN_PROGRESS
+    const client2 = track(await connectAs('client'));
+    await client2.nextMessage(); // drain connected:true
+    client2.ws.send(JSON.stringify({ type: 'run', scope: 'all' }));
+    const err = (await client2.nextMessage()) as { code?: string; message?: string };
+
+    expect(err.code).toBe('RUN_IN_PROGRESS');
+    expect(err.message).toContain('backgrounded');
+    expect(err.message).toContain('foreground');
+    expect(err.message).toContain('heartbeat');
   });
 });
