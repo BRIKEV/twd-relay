@@ -119,3 +119,56 @@ describe('faviconManager.set', () => {
     expect(link?.getAttribute('href')).toContain('%237ED321');
   });
 });
+
+describe('faviconManager.restore', () => {
+  beforeEach(() => {
+    document.head.innerHTML = '';
+    document.title = 'My App';
+  });
+
+  it('restores original favicon href after set() when one existed', () => {
+    const original = document.createElement('link');
+    original.rel = 'icon';
+    original.href = 'https://example.com/app.ico';
+    document.head.appendChild(original);
+
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('running');
+    mgr.restore();
+
+    const link = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    expect(link?.href).toBe('https://example.com/app.ico');
+    expect(document.title).toBe('My App');
+  });
+
+  it('removes the created <link> when no favicon existed originally', () => {
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('fail');
+    expect(document.querySelectorAll("link[rel='icon']").length).toBe(1);
+
+    mgr.restore();
+    expect(document.querySelectorAll("link[rel='icon']").length).toBe(0);
+    expect(document.title).toBe('My App');
+  });
+
+  it('is a no-op when restore is called without a prior save', () => {
+    const mgr = createFaviconManager(document);
+    expect(() => mgr.restore()).not.toThrow();
+    expect(document.title).toBe('My App');
+  });
+
+  it('supports a save/set/restore cycle followed by another save/set cycle', () => {
+    const mgr = createFaviconManager(document);
+    mgr.save();
+    mgr.set('connected');
+    mgr.restore();
+
+    document.title = 'Renamed App';
+    mgr.save();
+    mgr.set('pass');
+
+    expect(document.title).toBe('[TWD ✓] Renamed App');
+  });
+});
