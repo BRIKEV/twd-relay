@@ -14,17 +14,34 @@ export interface RunMonitorOptions {
 }
 
 export function createRunMonitor(options: RunMonitorOptions): RunMonitor {
-  // Implemented in Task 4.
-  void options;
+  const now = options.now ?? (() => performance.now());
+  const thresholdMs = options.thresholdMs;
+
+  let currentTestStart: number | null = null;
+  let currentTestName: string | null = null;
+  let aborted = false;
+
   return {
-    onTestStart() {},
-    onTestEnd() {},
-    checkThreshold() {
-      return null;
+    onTestStart(name: string): void {
+      currentTestStart = now();
+      currentTestName = name;
     },
-    markAborted() {},
-    isAborted() {
-      return false;
+    onTestEnd(): void {
+      currentTestStart = null;
+      currentTestName = null;
+    },
+    checkThreshold() {
+      if (thresholdMs <= 0) return null;
+      if (currentTestStart === null || currentTestName === null) return null;
+      const durationMs = now() - currentTestStart;
+      if (durationMs <= thresholdMs) return null;
+      return { testName: currentTestName, durationMs };
+    },
+    markAborted(): void {
+      aborted = true;
+    },
+    isAborted(): boolean {
+      return aborted;
     },
   };
 }
