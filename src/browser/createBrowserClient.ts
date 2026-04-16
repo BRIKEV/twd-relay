@@ -213,6 +213,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
         const errorMsg = err instanceof Error ? err.message : String(err);
         warn('Runner error:', errorMsg);
         send({ type: 'error', code: 'RUNNER_ERROR', message: errorMsg });
+        // A runner crash is a failure, not a pass — count it so the downstream
+        // set(failed > 0 ? 'fail' : 'pass') lands on red and run:complete
+        // accurately reflects that something went wrong.
+        failed++;
       }
 
       const duration = performance.now() - runStart;
