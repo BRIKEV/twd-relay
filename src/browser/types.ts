@@ -12,7 +12,7 @@ export interface BrowserClientOptions {
   /**
    * Maximum wall-clock ms any single test may run before the browser
    * aborts the run with reason 'throttled'. Typically triggered when the
-   * tab is backgrounded and Chrome throttles timers. Default: 5000.
+   * tab is backgrounded and Chrome throttles timers. Default: 10000.
    * Set to 0 to disable detection.
    */
   maxTestDurationMs?: number;

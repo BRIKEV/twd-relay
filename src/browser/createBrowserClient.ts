@@ -61,7 +61,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
   const reconnect = options?.reconnect ?? true;
   const reconnectInterval = options?.reconnectInterval ?? 2000;
   const enableLog = options?.log ?? false;
-  const defaultMaxTestDurationMs = options?.maxTestDurationMs ?? 5_000;
+  const defaultMaxTestDurationMs = options?.maxTestDurationMs ?? 10_000;
   const logPrefix = '[twd-relay]';
 
   function log(...args: unknown[]): void {

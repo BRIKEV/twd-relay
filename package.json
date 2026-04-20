@@ -1,6 +1,6 @@
 {
   "name": "twd-relay",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "WebSocket relay for TWD — enables AI agents and external tools to run and observe in-browser tests",
   "license": "MIT",
   "author": "BRIKEV",
