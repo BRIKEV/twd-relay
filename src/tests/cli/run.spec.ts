@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WebSocketServer, WebSocket as WsServerSocket } from 'ws';
 import { run } from '../../cli/run';
 
-const PORT = 9880;
+const PORT = 9886;
 const HOST = 'localhost';
 const PATH = '/__twd/ws';
 
