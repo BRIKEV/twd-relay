@@ -126,4 +126,39 @@ describe('cli run — failures recap', () => {
     expect(out).toContain('waitFor timed out after 2000ms');
     expect(code).toBe(1);
   });
+
+  it('does not print the recap on a green run', async () => {
+    harness = await startHarness((ws) => {
+      ws.send(JSON.stringify({ type: 'run:start', testCount: 1 }));
+      ws.send(
+        JSON.stringify({ type: 'test:start', suite: 'Smoke', name: 'works' }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'test:pass',
+          suite: 'Smoke',
+          name: 'works',
+          duration: 12,
+        }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'run:complete',
+          passed: 1,
+          failed: 0,
+          skipped: 0,
+          duration: 50,
+        }),
+      );
+    });
+
+    run({ port: PORT, host: HOST, path: PATH, timeout: 5000 });
+
+    const code = await harness.exitPromise;
+    const out = harness.logs.join('\n');
+
+    expect(out).not.toContain('Failed tests');
+    expect(out).toContain('--- Run complete ---');
+    expect(code).toBe(0);
+  });
 });
