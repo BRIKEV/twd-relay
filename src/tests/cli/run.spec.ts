@@ -161,4 +161,81 @@ describe('cli run — failures recap', () => {
     expect(out).toContain('--- Run complete ---');
     expect(code).toBe(0);
   });
+
+  it('omits the indented error line when test:fail has no error field', async () => {
+    harness = await startHarness((ws) => {
+      ws.send(JSON.stringify({ type: 'run:start', testCount: 1 }));
+      ws.send(
+        JSON.stringify({ type: 'test:start', suite: 'Lonely', name: 'no error info' }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'test:fail',
+          suite: 'Lonely',
+          name: 'no error info',
+          duration: 5,
+        }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'run:complete',
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+        }),
+      );
+    });
+
+    run({ port: PORT, host: HOST, path: PATH, timeout: 5000 });
+
+    const code = await harness.exitPromise;
+    const out = harness.logs.join('\n');
+
+    expect(out).toContain('Failed tests (1):');
+    expect(out).toContain('× Lonely > no error info');
+    // Find the recap section and confirm there's no indented error line under it.
+    const recapStart = out.indexOf('Failed tests (1):');
+    const recap = out.slice(recapStart);
+    // The line after `× Lonely > no error info` should NOT start with 4 spaces of error text
+    expect(recap).not.toMatch(/× Lonely > no error info\n {4}\S/);
+    expect(code).toBe(1);
+  });
+
+  it('indents each line of a multi-line error under the failure entry', async () => {
+    harness = await startHarness((ws) => {
+      ws.send(JSON.stringify({ type: 'run:start', testCount: 1 }));
+      ws.send(
+        JSON.stringify({ type: 'test:start', suite: 'Stacky', name: 'throws with stack' }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'test:fail',
+          suite: 'Stacky',
+          name: 'throws with stack',
+          duration: 8,
+          error: 'Boom\n  at frame1\n  at frame2',
+        }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'run:complete',
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 100,
+        }),
+      );
+    });
+
+    run({ port: PORT, host: HOST, path: PATH, timeout: 5000 });
+
+    const code = await harness.exitPromise;
+    const out = harness.logs.join('\n');
+
+    // Recap section should have all three error lines aligned under the test name (4-space indent).
+    const recap = out.slice(out.indexOf('Failed tests (1):'));
+    expect(recap).toContain('    Boom\n      at frame1\n      at frame2');
+    expect(code).toBe(1);
+  });
 });
