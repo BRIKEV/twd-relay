@@ -25,11 +25,6 @@ if (import.meta.env.DEV) {
     .catch((err) => {
       console.error("Error initializing request mocking:", err);
     });
-  // Browser client: connects to the relay via the Vite plugin.
-  // To trigger a run: npx twd-relay run (or node ../../dist/cli.js run)
-  const { createBrowserClient } = await import('twd-relay/browser');
-  const client = createBrowserClient();
-  client.connect();
 }
 
 createRoot(document.getElementById('root')!).render(

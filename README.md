@@ -115,9 +115,9 @@ Change the URL if your relay uses another port or path.
 
 ## Vite plugin (optional)
 
-If you use Vite, you can attach the relay to the dev server so the WebSocket is on the same host/port:
+If you use Vite, the plugin attaches the relay to the dev server **and** auto-injects the browser client into your `index.html` — so you don't need to call `createBrowserClient` yourself:
 
-```js
+```ts
 // vite.config.ts
 import { twdRemote } from 'twd-relay/vite';
 
@@ -126,7 +126,18 @@ export default defineConfig({
 });
 ```
 
-Then in your app you can omit the URL; the client defaults to `ws(s)://<current host>/__twd/ws`.
+That's the whole setup. The plugin only runs in dev (`apply: 'serve'`); production builds are untouched.
+
+### Plugin options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `path` | `string` | `'/__twd/ws'` (relative to Vite `base`) | WebSocket path. Used both by the relay and by the injected client — single source of truth. |
+| `autoConnect` | `boolean \| AutoConnectOptions` | `true` | Inject the browser client connect script into `index.html`. Set to `false` to wire `createBrowserClient` manually in your entry file. Pass an object to forward options (`reconnect`, `reconnectInterval`, `log`, `maxTestDurationMs`) into the injected `createBrowserClient` call. |
+
+### Manual usage (non-Vite, or opting out)
+
+`twd-relay/browser` is the supported public API for any setup the Vite plugin doesn't cover (Webpack, Angular, Rollup, esbuild, Rspack), and for advanced Vite users who want to subscribe to client events or coordinate connect timing. See the [Quick start](#quick-start-standalone-relay) section above for the manual snippet. To use the manual snippet **with** the Vite plugin, set `autoConnect: false` so the plugin doesn't also inject one — otherwise two clients connect.
 
 ---
 
