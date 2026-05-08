@@ -9,6 +9,12 @@ export interface RunOptions {
   maxTestDurationMs?: number;
 }
 
+interface FailureRecord {
+  suite: string;
+  name: string;
+  error?: string;
+}
+
 export function run(options: RunOptions): void {
   const { port, timeout, path, host, testNames, maxTestDurationMs } = options;
   const url = `ws://${host}:${port}${path}`;
@@ -19,6 +25,7 @@ export function run(options: RunOptions): void {
   let runSent = false;
   let runComplete = false;
   let failed = false;
+  const failures: FailureRecord[] = [];
 
   const timer = setTimeout(() => {
     console.error(`\nTimeout: no run:complete received within ${timeout / 1000}s`);
@@ -65,6 +72,7 @@ export function run(options: RunOptions): void {
         if (msg.error) {
           console.log(`    Error: ${msg.error}`);
         }
+        failures.push({ suite: msg.suite, name: msg.name, error: msg.error });
         break;
 
       case 'test:skip':
@@ -76,6 +84,18 @@ export function run(options: RunOptions): void {
         console.log(`\n--- Run complete ---`);
         console.log(`Passed: ${msg.passed} | Failed: ${msg.failed} | Skipped: ${msg.skipped}`);
         console.log(`Duration: ${duration}s`);
+
+        if (failures.length > 0) {
+          console.log(`\nFailed tests (${failures.length}):`);
+          for (const f of failures) {
+            console.log(`  × ${f.suite} > ${f.name}`);
+            if (f.error) {
+              const indented = f.error.replace(/\n/g, '\n    ');
+              console.log(`    ${indented}`);
+            }
+          }
+        }
+
         runComplete = true;
         clearTimeout(timer);
         ws.close();
