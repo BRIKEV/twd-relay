@@ -186,6 +186,8 @@ twd-relay run --test "login" --test "signup"
 
 When `--test` is used and no tests match, the CLI prints the available test names so you can correct the filter.
 
+When any tests fail, the CLI prints a recap block at the very end of the output listing each failed test and its error. This survives `tail -N` truncation and is easy to copy as a single block.
+
 ---
 
 ## License
