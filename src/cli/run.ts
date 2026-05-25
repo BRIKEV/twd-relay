@@ -19,8 +19,6 @@ export function run(options: RunOptions): void {
   const { port, timeout, path, host, testNames, maxTestDurationMs } = options;
   const url = `ws://${host}:${port}${path}`;
 
-  console.log(`Connecting to ${url}...`);
-
   const ws = new WebSocket(url);
   let runSent = false;
   let runComplete = false;
@@ -34,6 +32,7 @@ export function run(options: RunOptions): void {
   }, timeout);
 
   ws.on('open', () => {
+    console.log(`Connected to ${url}`);
     ws.send(JSON.stringify({ type: 'hello', role: 'client' }));
   });
 
@@ -44,7 +43,6 @@ export function run(options: RunOptions): void {
       case 'connected':
         if (msg.browser && !runSent) {
           runSent = true;
-          console.log('Browser connected, triggering test run...\n');
           const runMsg: Record<string, unknown> = { type: 'run', scope: 'all' };
           if (testNames?.length) runMsg.testNames = testNames;
           if (maxTestDurationMs !== undefined) runMsg.maxTestDurationMs = maxTestDurationMs;
@@ -55,43 +53,36 @@ export function run(options: RunOptions): void {
         break;
 
       case 'run:start':
-        console.log(`Running ${msg.testCount} test(s)...\n`);
+        console.log(`Running ${msg.testCount} test(s)...`);
         break;
 
       case 'test:start':
-        console.log(`  RUN:  ${msg.suite} > ${msg.name}`);
         break;
 
       case 'test:pass':
-        console.log(`  PASS: ${msg.suite} > ${msg.name} (${msg.duration}ms)`);
         break;
 
       case 'test:fail':
         failed = true;
-        console.log(`  FAIL: ${msg.suite} > ${msg.name} (${msg.duration}ms)`);
-        if (msg.error) {
-          console.log(`    Error: ${msg.error}`);
-        }
         failures.push({ suite: msg.suite, name: msg.name, error: msg.error });
         break;
 
       case 'test:skip':
-        console.log(`  SKIP: ${msg.suite} > ${msg.name}`);
         break;
 
       case 'run:complete': {
         const duration = (msg.duration / 1000).toFixed(1);
         console.log(`\n--- Run complete ---`);
-        console.log(`Passed: ${msg.passed} | Failed: ${msg.failed} | Skipped: ${msg.skipped}`);
-        console.log(`Duration: ${duration}s`);
+        console.log(`  Passed: ${msg.passed} | Failed: ${msg.failed} | Skipped: ${msg.skipped}`);
+        console.log(`  Duration: ${duration}s`);
 
         if (failures.length > 0) {
-          console.log(`\nFailed tests (${failures.length}):`);
+          console.log(`\n  Failed tests (${failures.length}):`);
           for (const f of failures) {
-            console.log(`  × ${f.suite} > ${f.name}`);
+            console.log(`    × ${f.suite} > ${f.name}`);
             if (f.error) {
-              const indented = f.error.replace(/\n/g, '\n    ');
-              console.log(`    ${indented}`);
+              const indented = f.error.replace(/\n/g, '\n      ');
+              console.log(`      ${indented}`);
             }
           }
         }
