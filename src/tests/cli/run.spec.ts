@@ -233,9 +233,9 @@ describe('cli run — failures recap', () => {
     const code = await harness.exitPromise;
     const out = harness.logs.join('\n');
 
-    // Recap section should have all three error lines aligned under the test name (4-space indent).
+    // Recap section should have all three error lines aligned under the test name (6-space indent).
     const recap = out.slice(out.indexOf('Failed tests (1):'));
-    expect(recap).toContain('    Boom\n      at frame1\n      at frame2');
+    expect(recap).toContain('      Boom\n        at frame1\n        at frame2');
     expect(code).toBe(1);
   });
 });
