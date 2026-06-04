@@ -30,5 +30,10 @@ jobs:
       - name: Install example dependencies
         run: cd examples/twd-test-app && npm install
 
+      - name: Install Chrome for Puppeteer
+        run: |
+          rm -rf ~/.cache/puppeteer
+          cd examples/twd-test-app && npx puppeteer browsers install chrome
+
       - name: Run E2E integration tests
         run: cd examples/twd-test-app && npm run test:e2e
