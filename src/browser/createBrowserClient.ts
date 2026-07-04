@@ -1,6 +1,7 @@
 import type { BrowserClient, BrowserClientOptions } from './types';
 import { createFaviconManager } from './faviconManager';
 import { createRunMonitor } from './runMonitor';
+import { selectTestIds, listTestPaths } from './filterTests';
 
 declare global {
   interface Window {
@@ -147,21 +148,10 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
       let testIds: string[] | undefined;
 
       if (testNames && testNames.length > 0) {
-        const lowerNames = testNames.map(n => n.toLowerCase());
-        const matched: string[] = [];
-        for (const [, handler] of handlers) {
-          if (handler.type === 'test') {
-            const lowerName = handler.name.toLowerCase();
-            if (lowerNames.some(n => lowerName.includes(n))) {
-              matched.push(handler.id);
-            }
-          }
-        }
+        const matched = selectTestIds(handlers, testNames);
 
         if (matched.length === 0) {
-          const available = Array.from(handlers.values())
-            .filter(h => h.type === 'test')
-            .map(h => h.name);
+          const available = listTestPaths(handlers);
           send({ type: 'run:start', testCount: 0 });
           send({
             type: 'error',

@@ -165,8 +165,11 @@ twd-relay run
 # Different port (e.g. standalone relay)
 twd-relay run --port 9876
 
-# Filter tests by name (substring match, case-insensitive, repeatable)
+# Filter tests by name or describe block (substring match against the full
+# path "Describe > nested > test name", case-insensitive, repeatable)
 twd-relay run --test "should show error"
+twd-relay run --test "Login flow"                 # runs every test in that describe
+twd-relay run --test "login flow > shows error"   # path match across describe/test
 twd-relay run --test "login" --test "signup"
 ```
 
@@ -177,9 +180,9 @@ twd-relay run --test "login" --test "signup"
 | `--path <path>` | WebSocket path | `/__twd/ws` |
 | `--timeout <ms>` | Run timeout | `180000` |
 | `--max-test-duration <ms>` | Per-test wall-clock abort threshold | `10000` |
-| `--test <name>` | Filter tests by name substring (repeatable) | — |
+| `--test <name>` | Filter tests by substring of the full describe-path (repeatable) | — |
 
-When `--test` is used and no tests match, the CLI prints the available test names so you can correct the filter.
+When `--test` is used and no tests match, the CLI prints the available tests as full describe-paths so you can correct the filter.
 
 ---
 
