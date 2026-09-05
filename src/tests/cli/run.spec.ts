@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { WebSocketServer, WebSocket as WsServerSocket } from 'ws';
 import { run } from '../../cli/run';
+import { composeFailureError } from '../../browser/diagnostics';
 
 const PORT = 9886;
 const HOST = 'localhost';
@@ -236,6 +237,47 @@ describe('cli run — failures recap', () => {
     // Recap section should have all three error lines aligned under the test name (6-space indent).
     const recap = out.slice(out.indexOf('Failed tests (1):'));
     expect(recap).toContain('      Boom\n        at frame1\n        at frame2');
+    expect(code).toBe(1);
+  });
+
+  it('renders a diagnostics block one line per row, above the message', async () => {
+    harness = await startHarness((ws) => {
+      ws.send(JSON.stringify({ type: 'run:start', total: 1 }));
+      ws.send(
+        JSON.stringify({
+          type: 'test:fail',
+          suite: 'Catalog',
+          name: 'lists products',
+          duration: 12,
+          error: composeFailureError('expected 0 to be 3', {
+            location: '/cg-1/settings/catalog',
+            mockRules: { registered: 7, triggered: 6, untriggered: ['catalog'] },
+          }),
+        }),
+      );
+      ws.send(
+        JSON.stringify({
+          type: 'run:complete',
+          passed: 0,
+          failed: 1,
+          skipped: 0,
+          duration: 120,
+        }),
+      );
+    });
+
+    run({ port: PORT, host: HOST, path: PATH, timeout: 5000 });
+
+    const code = await harness.exitPromise;
+    const recap = harness.logs.join('\n');
+
+    // Each row keeps its own line and the recap's 6-space indent — not one run-on line.
+    expect(recap).toContain('      ── TWD diagnostics ');
+    expect(recap).toContain('\n      location    /cg-1/settings/catalog');
+    expect(recap).toContain('\n      mock rules  6/7 triggered — catalog never requested');
+    // The message stays below the block, separated by a blank line. `run.ts` indents
+    // every newline, so that separator carries the 6-space prefix too.
+    expect(recap).toContain(`${'─'.repeat(56)}\n      \n      expected 0 to be 3`);
     expect(code).toBe(1);
   });
 });

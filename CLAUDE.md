@@ -23,7 +23,7 @@ twd-relay is a WebSocket relay that lets AI agents and external tools trigger an
 
 **Relay Server** (`src/relay/`, exported as `twd-relay`) — A WebSocket server that attaches to an HTTP server. It manages exactly one browser connection and many client connections. Clients send commands (`run`, `status`); the relay forwards them to the browser. The browser sends test lifecycle events (`test:start`, `test:pass`, `test:fail`, `run:complete`, etc.); the relay broadcasts them to all clients. A `runInProgress` lock prevents concurrent test runs.
 
-**Browser Client** (`src/browser/`, exported as `twd-relay/browser`) — Runs in the browser. Connects to the relay, listens for commands, dynamically imports `twd-js/runner` to execute tests, and streams results back. Uses native browser `WebSocket` with auto-reconnect. Reads test state from `window.__TWD_STATE__` (set by twd-js). A small `faviconManager` (in `src/browser/faviconManager.ts`) sets a colored favicon + `document.title` prefix based on connection/run state so the active TWD tab is identifiable among multiple tabs to the same origin. A sibling `runMonitor` (in `src/browser/runMonitor.ts`) tracks per-test wall-clock time; on the 3 s heartbeat tick AND at the end of every test, the browser checks whether the test exceeded `maxTestDurationMs` (default 10 s) and, if so, emits a `run:aborted` event so the CLI can exit with a clear error instead of hanging on a throttled tab.
+**Browser Client** (`src/browser/`, exported as `twd-relay/browser`) — Runs in the browser. Connects to the relay, listens for commands, dynamically imports `twd-js/runner` to execute tests, and streams results back. Uses native browser `WebSocket` with auto-reconnect. Reads test state from `window.__TWD_STATE__` (set by twd-js). A small `faviconManager` (in `src/browser/faviconManager.ts`) sets a colored favicon + `document.title` prefix based on connection/run state so the active TWD tab is identifiable among multiple tabs to the same origin. A sibling `runMonitor` (in `src/browser/runMonitor.ts`) tracks per-test wall-clock time; on the 3 s heartbeat tick AND at the end of every test, the browser checks whether the test exceeded `maxTestDurationMs` (default 10 s) and, if so, emits a `run:aborted` event so the CLI can exit with a clear error instead of hanging on a throttled tab. A third helper, `diagnostics.ts`, renders the failure-diagnostics block twd-js attaches to a failed test and composes it above the error message on `test:fail`.
 
 **Vite Plugin** (`src/vite/`, exported as `twd-relay/vite`) — A Vite plugin that hooks into `configureServer` to attach the relay to the dev server's HTTP instance, and (in `apply: 'serve'` mode) auto-injects a `<script type="module">` that imports `createBrowserClient` and calls `.connect()` via a virtual module (`virtual:twd-relay/connect`). Auto-injection is on by default; set `autoConnect: false` to opt out and wire `createBrowserClient` manually (required for non-Vite consumers). Both the relay-server path and the injected client path use the same formula (`options.path ?? base + '/__twd/ws'`); `configResolved` sets the `base` for both.
 
@@ -59,6 +59,7 @@ From repo root:
 - `moduleResolution: "Bundler"` in tsconfig is required for subpath exports like `twd-js/runner`
 - Use `import { type RawData } from 'ws'` (not `WebSocket.RawData` namespace access) for ESM/CJS compat
 - Build externals: `ws`, `http`, `stream`, `vite`, `twd-js`, `twd-js/runner`
+- `src/browser/diagnostics.ts` is a **deliberate port** of twd-js's internal `src/utils/diagnostics.ts`, not an import. twd-js keeps `formatDiagnostics` private, and its only public entry pulls in the sidebar, chai and the theme (~470 KB) — far too much to load into the page for a pure string formatter. The relay needs only the *data*, which arrives on the handler via `twd-js/runner` (already imported). The output must stay byte-identical to twd-js's, since the sidebar and `runner-ci` render the same block; `src/tests/browser/diagnostics.spec.ts` mirrors twd-js's own spec to keep them honest. **If twd-js's format changes, update this port.**
 
 ## Dependency Constraints
 
@@ -88,7 +89,7 @@ A green build is not sufficient evidence: the type rollup fails silently.
 
 ## Test Patterns
 
-- **85 tests** across 9 files, runs in ~3s
+- **95 tests** across 10 files, runs in ~3s
 - Each test file uses **unique ports** (9877, 9878, 9879+) to avoid conflicts
 - WebSocket tests use a **`TrackedWs` wrapper** that buffers incoming messages into a queue. This prevents race conditions — `nextMessage()` either returns a queued message or waits for the next one. This pattern is critical; without it, messages arrive before assertions are set up.
 - A new browser connection replaces any existing one (closed with code 1000, reason "Replaced by new browser")

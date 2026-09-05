@@ -2,6 +2,7 @@ import type { BrowserClient, BrowserClientOptions } from './types';
 import { createFaviconManager } from './faviconManager';
 import { createRunMonitor } from './runMonitor';
 import { selectTestIds, listTestPaths } from './filterTests';
+import { composeFailureError, type TestDiagnostics } from './diagnostics';
 
 declare global {
   interface Window {
@@ -32,6 +33,8 @@ interface TwdHandler {
   type: 'suite' | 'test';
   status?: 'idle' | 'pass' | 'fail' | 'skip' | 'running';
   logs: string[];
+  /** Set by twd-js only when the test fails; absent on older versions. */
+  diagnostics?: TestDiagnostics;
   depth: number;
   only?: boolean;
   skip?: boolean;
@@ -218,7 +221,7 @@ export function createBrowserClient(options?: BrowserClientOptions): BrowserClie
             id: test.id,
             name: test.name,
             suite: getSuiteName(test, handlers),
-            error: error.message,
+            error: composeFailureError(error.message, test.diagnostics),
             duration: performance.now() - runStart,
           });
         },
