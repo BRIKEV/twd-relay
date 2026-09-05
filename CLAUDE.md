@@ -60,9 +60,35 @@ From repo root:
 - Use `import { type RawData } from 'ws'` (not `WebSocket.RawData` namespace access) for ESM/CJS compat
 - Build externals: `ws`, `http`, `stream`, `vite`, `twd-js`, `twd-js/runner`
 
+## Dependency Constraints
+
+Two pins here are deliberate — don't "clean them up":
+
+- **`overrides: { "fast-uri": "^4.1.4" }`** in `package.json` is required for a clean `npm audit`.
+  `fast-uri` 3.x carries 6 high-severity advisories and reaches us dev-only via
+  `vite-plugin-dts` → `@microsoft/api-extractor` → `@microsoft/tsdoc-config` → `ajv`.
+  `ajv` pins `fast-uri: ^3.0.1`, so the fixed 4.x only lands via an override. It never
+  ships — the published package's sole runtime dependency is `ws`.
+- **`typescript` stays `^5.9.x` and `vite-plugin-dts` stays `^4.5.x`.** TypeScript 7 removed the
+  JavaScript Compiler API. With dts 4.5.4 the build fails outright; with `vite-plugin-dts@5`
+  plus the `@typescript/typescript6` bridge the build **exits 0 but silently ships broken types** —
+  `rollupTypes` degrades to multi-file stubs and `dist/index.d.ts` becomes a re-export stub.
+
+After any dependency bump, verify each of these:
+
+```bash
+npm audit                  # expect 0 vulnerabilities
+npm ci --dry-run           # catches lockfile inconsistency CI would hit
+npm run build && ls dist/*.d.ts
+find dist -name '*.d.ts' -mindepth 2   # MUST be empty — non-empty means rollup silently failed
+npx @arethetypeswrong/cli --pack .     # node16 (from ESM) must be green on all 3 entries
+```
+
+A green build is not sufficient evidence: the type rollup fails silently.
+
 ## Test Patterns
 
-- **26 tests** across 3 files, runs in ~1.5s
+- **85 tests** across 9 files, runs in ~3s
 - Each test file uses **unique ports** (9877, 9878, 9879+) to avoid conflicts
 - WebSocket tests use a **`TrackedWs` wrapper** that buffers incoming messages into a queue. This prevents race conditions — `nextMessage()` either returns a queued message or waits for the next one. This pattern is critical; without it, messages arrive before assertions are set up.
 - A new browser connection replaces any existing one (closed with code 1000, reason "Replaced by new browser")
