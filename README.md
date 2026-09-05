@@ -110,6 +110,23 @@ The CLI prints `Run abandoned — browser tab appears frozen. Refresh the browse
 
 When tests fail, the CLI prints a recap block at the very end of the output listing each failed test and its error. This survives `tail -N` truncation and is easy to copy as a single block.
 
+### Failure diagnostics
+
+When the installed `twd-js` reports them, each failure is prefixed with a diagnostics block naming the route the test was on and which mock rules never fired — usually enough to tell "the assertion is wrong" apart from "the page never loaded the data":
+
+```
+  Failed tests (1):
+    × Catalog > lists products
+      ── TWD diagnostics ─────────────────────────────────────
+      location    /cg-1/settings/catalog
+      mock rules  6/7 triggered — catalog never requested
+      ────────────────────────────────────────────────────────
+
+      expected 0 to be 3
+```
+
+The block sits above the error message, matching the TWD sidebar and `runner-ci`. The `mock rules` row is omitted entirely when the test registered no mock rules, and a run on an older `twd-js` that does not report diagnostics simply prints the error message as before.
+
 ---
 
 ## Manual setup (non-Vite, or opting out)
